@@ -14,7 +14,9 @@ import io.element.android.call.api.ElementCallEndReason
 import io.element.android.call.api.ElementCallFailure
 import io.element.android.call.api.ElementCallOptions
 import io.element.android.call.api.ElementCallRoomContext
+import io.element.android.call.api.ElementCallRoomContextProvider
 import io.element.android.call.api.ElementCallSnapshot
+import io.element.android.call.api.NoOpElementCallRoomContextProvider
 import io.element.android.call.api.analytics.ElementCallAnalytics
 import io.element.android.call.api.analytics.ElementCallAnalyticsCallKind
 import io.element.android.call.api.analytics.ElementCallAnalyticsCallKind.DM
@@ -181,6 +183,18 @@ class CallAnalyticsTest {
         runCurrent()
         assertThat(controller.state.value).isNull()
         assertThat(analytics.anonymous()).containsExactly(attempted(GROUP), outcome(ElementCallAnalyticsOutcome.ABANDONED)).inOrder()
+    }
+
+    @Test
+    fun `a provider with no room knowledge at all leaves a refusal to the end, as a group call`() = runTest {
+        val controller = createController(roomContextProvider = null)
+        controller.setMicrophonePermissionGranted(false)
+        runCurrent()
+        assertThat(analytics.events).isEmpty()
+
+        controller.hangUp()
+        runCurrent()
+        assertThat(analytics.anonymous()).containsExactly(attempted(GROUP), outcome(ElementCallAnalyticsOutcome.PERMISSION_REFUSED)).inOrder()
     }
 
     @Test
@@ -656,7 +670,7 @@ class CallAnalyticsTest {
         rtcClient: FakeMatrixRtcClient = FakeMatrixRtcClient(),
         analytics: ElementCallAnalytics = this@CallAnalyticsTest.analytics,
         isDm: Boolean = false,
-        roomContextProvider: FakeElementCallRoomContextProvider = FakeElementCallRoomContextProvider(aRoomContext(isDm)),
+        roomContextProvider: ElementCallRoomContextProvider? = FakeElementCallRoomContextProvider(aRoomContext(isDm)),
         platform: FakeElementCallPlatform = FakeElementCallPlatform(),
         scope: CoroutineScope = backgroundScope,
         start: Boolean = true,
@@ -668,7 +682,7 @@ class CallAnalyticsTest {
             audioDeviceController = FakeCallAudioDeviceController(),
             audioFocus = FakeAudioFocus(requestAudioFocusResult = {}, releaseAudioFocusResult = {}),
             lifecycleListener = FakeElementCallLifecycleListener(),
-            roomContextProvider = roomContextProvider,
+            roomContextProvider = roomContextProvider ?: NoOpElementCallRoomContextProvider,
             options = ElementCallOptions(),
             preferencesStore = FakeElementCallPreferencesStore(),
             analytics = analytics,

@@ -84,6 +84,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
@@ -392,7 +393,9 @@ internal class DefaultElementCallController(
                 // At the request, not the grant: a refused microphone is an outcome of this attempt (044 R10).
                 val attempt = ElementCallAnalyticsReporter(analytics, platform::elapsedRealtimeMs)
                 reporter = attempt
-                earlyKindReadJob = scope.launch { attempt.roomKindRead(callKindOf(isDm = roomContextProvider.roomContext(callData.roomId).first().isDm)) }
+                // A provider that completes with nothing to say leaves the kind to the end, as a group call.
+                earlyKindReadJob =
+                    scope.launch { roomContextProvider.roomContext(callData.roomId).firstOrNull()?.let { attempt.roomKindRead(callKindOf(it.isDm)) } }
             }
         }
     }
