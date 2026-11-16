@@ -297,7 +297,7 @@ class ElementCallScreenTest : RobolectricTest() {
         onNodeWithTag(ElementCallTestTags.PREFERENCES_SHEET).assertDoesNotExist()
 
         state = anElementCallScreenState(
-            connection = ElementCallConnection.Failed(ElementCallFailure.JoinRefused),
+            connection = ElementCallConnection.Failed(ElementCallFailure.JoinRefused()),
             isDeveloperModeEnabled = true,
             settingsSheet = ElementCallSettingsSheet.DEVELOPER_OPTIONS,
         )
@@ -388,7 +388,7 @@ class ElementCallScreenTest : RobolectricTest() {
         setContent {
             ElementCallScreen(
                 state = anElementCallScreenState(
-                    connection = ElementCallConnection.Failed(ElementCallFailure.JoinRefused),
+                    connection = ElementCallConnection.Failed(ElementCallFailure.JoinRefused()),
                     joiningFormat = joiningFormat,
                     eventSink = events,
                 )

@@ -16,7 +16,7 @@ import org.junit.Test
 /** Which failures say the membership format may be their cause (feature-hq 043 R18, C4). */
 class MayBeMembershipFormatTest {
     private val joinFailures = listOf(
-        ElementCallFailure.JoinRefused,
+        ElementCallFailure.JoinRefused(),
         // The open-questions Q1 choice: a timed-out join names it too.
         ElementCallFailure.JoinTimedOut,
         // The room open, any other join error and the media connection during the join.

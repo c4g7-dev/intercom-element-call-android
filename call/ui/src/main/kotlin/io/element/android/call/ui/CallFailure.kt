@@ -159,7 +159,7 @@ internal fun ElementCallFailure.title(): String = stringResource(
             MatrixRtcConnectionLossReason.TOKEN_ENDPOINT_UNSUPPORTED -> R.string.element_call_failure_connection_failed_title
         }
         ElementCallFailure.JoinTimedOut,
-        ElementCallFailure.JoinRefused -> R.string.element_call_failure_join_failed_title
+        is ElementCallFailure.JoinRefused -> R.string.element_call_failure_join_failed_title
         ElementCallFailure.MicrophoneRefused -> R.string.element_call_permission_microphone_title
         is ElementCallFailure.Other -> R.string.element_call_call_failed
     }
@@ -175,7 +175,7 @@ internal fun ElementCallFailure.title(): String = stringResource(
 internal fun ElementCallFailure.mayBeMembershipFormat(joiningFormat: MatrixRtcMembershipFormat?): Boolean {
     if (joiningFormat != MatrixRtcMembershipFormat.MSC) return false
     return when (this) {
-        ElementCallFailure.JoinRefused -> true
+        is ElementCallFailure.JoinRefused -> true
         is ElementCallFailure.Other -> isJoinFailure
         ElementCallFailure.JoinTimedOut -> TIMED_OUT_JOIN_MAY_BE_MEMBERSHIP_FORMAT
         is ElementCallFailure.ConnectionLost -> reason == MatrixRtcConnectionLossReason.TOKEN_ENDPOINT_UNSUPPORTED
@@ -217,7 +217,7 @@ internal fun ElementCallFailure.text(): String = when (this) {
         }
     )
     ElementCallFailure.JoinTimedOut -> stringResource(R.string.element_call_failure_join_timed_out)
-    ElementCallFailure.JoinRefused -> stringResource(R.string.element_call_failure_join_refused)
+    is ElementCallFailure.JoinRefused -> stringResource(R.string.element_call_failure_join_refused)
     ElementCallFailure.MicrophoneRefused -> stringResource(R.string.element_call_permission_microphone_description)
     is ElementCallFailure.Other -> message
 }
@@ -226,7 +226,7 @@ internal class ElementCallConnectionFailedPreviewParam : PreviewParameterProvide
     override val values = sequenceOf(
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.BUDGET),
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.NEVER_CONNECTED),
-        ElementCallFailure.JoinRefused,
+        ElementCallFailure.JoinRefused(),
         ElementCallFailure.Other("Homeserver offers no LiveKit transport", isJoinFailure = true),
         ElementCallFailure.MicrophoneRefused,
     ).map(ElementCallConnection::Failed)
@@ -240,7 +240,7 @@ internal fun CallFailurePreview(@PreviewParameter(ElementCallConnectionFailedPre
 
 internal class MscElementCallConnectionFailedPreviewParam : PreviewParameterProvider<ElementCallConnection.Failed> {
     override val values = sequenceOf(
-        ElementCallFailure.JoinRefused,
+        ElementCallFailure.JoinRefused(),
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.TOKEN_ENDPOINT_UNSUPPORTED),
     ).map(ElementCallConnection::Failed)
 }

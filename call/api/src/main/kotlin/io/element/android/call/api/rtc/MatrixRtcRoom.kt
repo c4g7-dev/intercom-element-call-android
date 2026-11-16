@@ -42,4 +42,7 @@ sealed class MatrixRtcJoinException(message: String) : Exception(message) {
 
     /** The homeserver cannot hand out a media-server token the way the join's membership format asks for one (038 R44). */
     class TokenEndpointUnsupported : MatrixRtcJoinException("the homeserver has no MSC4195 token endpoint")
+
+    /** The call's slot was not open, so our membership was not sent. */
+    class SlotClosed : MatrixRtcJoinException("the call's slot is closed")
 }

@@ -706,7 +706,7 @@ internal class DefaultElementCallController(
         val joined = room.joinCall(kind = kind).getOrElse {
             when (it) {
                 is MatrixRtcJoinException.TimedOut -> fail(ElementCallFailure.JoinTimedOut, "Join failed: ${it.message}")
-                is MatrixRtcJoinException.Refused -> fail(ElementCallFailure.JoinRefused, "Join failed: ${it.message}")
+                is MatrixRtcJoinException.Refused -> fail(ElementCallFailure.JoinRefused(it.errcode), "Join failed: ${it.message}")
                 else -> fail("Join failed: ${it.message}", isJoinFailure = true)
             }
             return

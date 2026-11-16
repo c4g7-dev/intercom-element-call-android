@@ -369,7 +369,7 @@ class DefaultElementCallControllerTest {
         controller.setMicrophonePermissionGranted(true)
         runCurrent()
 
-        assertThat(controller.state.value?.connection).isEqualTo(ElementCallConnection.Failed(ElementCallFailure.JoinRefused))
+        assertThat(controller.state.value?.connection).isEqualTo(ElementCallConnection.Failed(ElementCallFailure.JoinRefused(errcode = "M_FORBIDDEN")))
     }
 
     @Test
