@@ -23,7 +23,13 @@ import io.element.android.call.api.analytics.ElementCallAnalyticsFailurePhase
 import io.element.android.call.api.analytics.ElementCallAnalyticsFailureStage
 import io.element.android.call.api.analytics.ElementCallAnalyticsFailureStep
 import io.element.android.call.api.analytics.ElementCallAnalyticsOutcome
+import io.element.android.call.api.rtc.MatrixRtcCallEnd
+import io.element.android.call.api.rtc.MatrixRtcCallEvent
+import io.element.android.call.api.rtc.MatrixRtcCallStatus
 import io.element.android.call.api.rtc.MatrixRtcConnectionLossReason
+import io.element.android.call.api.rtc.MatrixRtcMediaPhase
+import io.element.android.call.api.rtc.MatrixRtcRingPhase
+import io.element.android.call.api.rtc.id.UserId
 import io.element.android.call.test.FakeElementCallAnalytics
 import org.junit.Test
 
@@ -433,7 +439,43 @@ class ElementCallAnalyticsReporterTest {
             )
     }
 
+    @Test
+    fun `a status with our media up counts, ringing or not, and a plain connecting one does not`() {
+        reporter.attempted(DM)
+        reporter.microphonePublished(1)
+        reporter.status(MatrixRtcCallStatus.Connecting, participants = 1)
+        reporter.status(MatrixRtcCallStatus.Calling(A_CALLEE, MatrixRtcRingPhase.Sending, MatrixRtcMediaPhase.Connecting), participants = 1)
+        assertThat(analytics.events).hasSize(1)
+
+        reporter.status(MatrixRtcCallStatus.Calling(A_CALLEE, MatrixRtcRingPhase.Sending, MatrixRtcMediaPhase.Connected(degraded = false)), participants = 1)
+        assertThat(analytics.events.last()).isEqualTo(outcome(ElementCallAnalyticsOutcome.CONNECTED, DM))
+    }
+
+    @Test
+    fun `the core's lost connection is its failure, then its end`() {
+        connect()
+        reporter.status(MatrixRtcCallStatus.Ended(MatrixRtcCallEnd.ConnectionClosed(MatrixRtcConnectionLossReason.NEVER_CONNECTED, "text")), participants = 1)
+        assertThat(analytics.names.drop(2)).containsExactly("CallFailure", "CallParticipationEnded").inOrder()
+        assertThat((analytics.events[2] as CallFailure).cause).isEqualTo(ElementCallAnalyticsFailureCause.CONNECTION_LOST_NEVER_CONNECTED)
+    }
+
+    @Test
+    fun `the call over with no core end is a hang-up, and with one is the core's`() {
+        connect()
+        reporter.callEvent(MatrixRtcCallEvent.ParticipantJoined("m", UserId("@bob:example.org"), participantCount = 4))
+        reporter.callOver(coreEnd = null)
+        assertThat(analytics.events.last()).isEqualTo(CallParticipationEnded(AN_ID, GROUP, ElementCallEndReason.LEFT, durationMs = 0, participantsMax = 4))
+
+        val other = FakeElementCallAnalytics()
+        ElementCallAnalyticsReporter(other, { 0 }, AN_ID).apply {
+            attempted(DM)
+            callOver(coreEnd = MatrixRtcCallEnd.Declined)
+        }
+        assertThat(other.events.last()).isEqualTo(outcome(ElementCallAnalyticsOutcome.ABANDONED, DM, ElementCallEndReason.DECLINED))
+    }
+
     private companion object {
+        val A_CALLEE = UserId("@callee:example.org")
         const val AN_ID = "an-attempt-id"
     }
 }

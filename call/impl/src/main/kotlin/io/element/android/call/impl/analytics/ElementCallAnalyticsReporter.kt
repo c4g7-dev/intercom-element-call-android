@@ -14,6 +14,11 @@ import io.element.android.call.api.analytics.ElementCallAnalyticsEvent
 import io.element.android.call.api.analytics.ElementCallAnalyticsFailureCause
 import io.element.android.call.api.analytics.ElementCallAnalyticsFailurePhase
 import io.element.android.call.api.analytics.ElementCallAnalyticsOutcome
+import io.element.android.call.api.rtc.MatrixRtcCallEnd
+import io.element.android.call.api.rtc.MatrixRtcCallEvent
+import io.element.android.call.api.rtc.MatrixRtcCallStatus
+import io.element.android.call.api.rtc.MatrixRtcMediaPhase
+import io.element.android.call.impl.toEndReason
 import io.element.android.call.impl.util.runCatchingExceptions
 import timber.log.Timber
 import java.util.UUID
@@ -139,6 +144,42 @@ internal class ElementCallAnalyticsReporter(
         }
     }
 
+    /**
+     * The call's status, as the core reports it. Our media up, while it rings or not, is half of connected, never the
+     * pickup (R8, C5); an end is the core's, a lost connection reporting its failure first (C4).
+     */
+    @Synchronized
+    fun status(status: MatrixRtcCallStatus, participants: Int) {
+        when (status) {
+            is MatrixRtcCallStatus.Connected -> ownMediaConnected(participants)
+            is MatrixRtcCallStatus.Calling -> if (status.media is MatrixRtcMediaPhase.Connected) ownMediaConnected(participants)
+            is MatrixRtcCallStatus.Ended -> coreEnded(status.reason)
+            MatrixRtcCallStatus.Connecting -> Unit
+        }
+    }
+
+    /** Someone joined or left: the membership count after it (R26). */
+    @Synchronized
+    fun callEvent(event: MatrixRtcCallEvent) {
+        when (event) {
+            is MatrixRtcCallEvent.ParticipantJoined -> participants(event.participantCount)
+            is MatrixRtcCallEvent.ParticipantLeft -> participants(event.participantCount)
+            else -> Unit
+        }
+    }
+
+    /** The call is torn down: by the core's end when it has one the status observer has not reached, else by a hang-up. */
+    @Synchronized
+    fun callOver(coreEnd: MatrixRtcCallEnd?) {
+        if (coreEnd == null) hungUp() else coreEnded(coreEnd)
+        attemptOver()
+    }
+
+    private fun coreEnded(end: MatrixRtcCallEnd) {
+        if (end is MatrixRtcCallEnd.ConnectionClosed) failed(FailureReport.connectionClosed(end.reason))
+        ended(end.toEndReason())
+    }
+
     private fun reachOutcome(outcome: Held, transition: String) {
         when (val current = phase) {
             is Phase.Requested -> when {
@@ -210,3 +251,6 @@ internal class ElementCallAnalyticsReporter(
         Timber.d("ElementCall: analytics $transition skipped in ${phase::class.simpleName}")
     }
 }
+
+/** `dm` for a direct-message room, `group` otherwise (R25). */
+internal fun callKindOf(isDm: Boolean) = if (isDm) ElementCallAnalyticsCallKind.DM else ElementCallAnalyticsCallKind.GROUP
