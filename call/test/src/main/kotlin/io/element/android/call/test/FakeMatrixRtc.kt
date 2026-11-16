@@ -180,6 +180,9 @@ class FakeMatrixRtcCall(
     /** Called as media is asked for, before it connects: what a test checks has happened by then. */
     var onConnectMedia: () -> Unit = {}
 
+    /** What [connectMedia] fails with instead of connecting; null connects. */
+    var connectMediaFailure: Throwable? = null
+
     /** The session [connectMedia] connects: a harness gives it pictures and our own tile. */
     var newMediaSession: () -> FakeMatrixRtcMediaSession = { FakeMatrixRtcMediaSession() }
 
@@ -194,6 +197,7 @@ class FakeMatrixRtcCall(
         lastVideoCodec = videoCodec
         connectMediaCount++
         onConnectMedia()
+        connectMediaFailure?.let { return Result.failure(it) }
         return Result.success(newMediaSession().also { lastMediaSession = it }).also {
             if (status.value == MatrixRtcCallStatus.Connecting) status.value = MatrixRtcCallStatus.Connected(connectedSinceMs, degraded = false)
         }

@@ -73,7 +73,9 @@ class ElementCallAnalyticsReporterTest {
 
     @Test
     fun `a held outcome goes out at the end as a group call when nothing answered`() {
-        reporter.failed(FailureReport(ElementCallAnalyticsFailureCause.OTHER, ElementCallAnalyticsFailureStage.HOMESERVER, ElementCallAnalyticsFailureStep.UNKNOWN))
+        reporter.failed(
+            FailureReport(ElementCallAnalyticsFailureCause.OTHER, ElementCallAnalyticsFailureStage.HOMESERVER, ElementCallAnalyticsFailureStep.UNKNOWN)
+        )
         reporter.hungUp()
         assertThat(analytics.events).isEmpty()
 
@@ -81,8 +83,15 @@ class ElementCallAnalyticsReporterTest {
         assertThat(analytics.events).containsExactly(
             CallJoinAttempted(AN_ID, GROUP),
             outcome(ElementCallAnalyticsOutcome.FAILED),
-            CallFailure(AN_ID, GROUP, ElementCallAnalyticsFailurePhase.JOINING, ElementCallAnalyticsFailureCause.OTHER,
-                ElementCallAnalyticsFailureStage.HOMESERVER, ElementCallAnalyticsFailureStep.UNKNOWN, null),
+            CallFailure(
+                AN_ID,
+                GROUP,
+                ElementCallAnalyticsFailurePhase.JOINING,
+                ElementCallAnalyticsFailureCause.OTHER,
+                ElementCallAnalyticsFailureStage.HOMESERVER,
+                ElementCallAnalyticsFailureStep.UNKNOWN,
+                null
+            ),
         ).inOrder()
 
         reporter.roomKindRead(DM)
@@ -220,7 +229,9 @@ class ElementCallAnalyticsReporterTest {
                 hungUp()
                 attemptOver()
             }
-            assertThat(analytics.events).containsExactly(CallJoinAttempted(AN_ID, GROUP), outcome(ElementCallAnalyticsOutcome.ABANDONED, endReason = reason)).inOrder()
+            assertThat(
+                analytics.events
+            ).containsExactly(CallJoinAttempted(AN_ID, GROUP), outcome(ElementCallAnalyticsOutcome.ABANDONED, endReason = reason)).inOrder()
         }
         reporter.attempted(GROUP)
         reporter.ended(ElementCallEndReason.LEFT)
@@ -239,8 +250,15 @@ class ElementCallAnalyticsReporterTest {
         assertThat(analytics.events).containsExactly(
             CallJoinAttempted(AN_ID, GROUP),
             outcome(ElementCallAnalyticsOutcome.FAILED),
-            CallFailure(AN_ID, GROUP, ElementCallAnalyticsFailurePhase.JOINING, ElementCallAnalyticsFailureCause.JOIN_REFUSED,
-                ElementCallAnalyticsFailureStage.HOMESERVER, ElementCallAnalyticsFailureStep.UNKNOWN, "M_FORBIDDEN"),
+            CallFailure(
+                AN_ID,
+                GROUP,
+                ElementCallAnalyticsFailurePhase.JOINING,
+                ElementCallAnalyticsFailureCause.JOIN_REFUSED,
+                ElementCallAnalyticsFailureStage.HOMESERVER,
+                ElementCallAnalyticsFailureStep.UNKNOWN,
+                "M_FORBIDDEN"
+            ),
         ).inOrder()
     }
 
@@ -384,7 +402,10 @@ class ElementCallAnalyticsReporterTest {
     @Test
     fun `a throwing receiver does not throw, and the next event still goes to it`() {
         var calls = 0
-        val throwing = ElementCallAnalyticsReporter({ calls++; error("the host broke") }, { 0 }, AN_ID)
+        val throwing = ElementCallAnalyticsReporter({
+            calls++
+            error("the host broke")
+        }, { 0 }, AN_ID)
         throwing.attempted(GROUP)
         throwing.hungUp()
         assertThat(calls).isEqualTo(2)
@@ -395,9 +416,21 @@ class ElementCallAnalyticsReporterTest {
         assertThat(FailureReport.connectionClosed(MatrixRtcConnectionLossReason.NEVER_CONNECTED).cause)
             .isEqualTo(ElementCallAnalyticsFailureCause.CONNECTION_LOST_NEVER_CONNECTED)
         assertThat(FailureReport.connectionClosed(MatrixRtcConnectionLossReason.REFUSED))
-            .isEqualTo(FailureReport(ElementCallAnalyticsFailureCause.CONNECTION_LOST_REFUSED, ElementCallAnalyticsFailureStage.MEDIA, ElementCallAnalyticsFailureStep.UNKNOWN))
+            .isEqualTo(
+                FailureReport(
+                    ElementCallAnalyticsFailureCause.CONNECTION_LOST_REFUSED,
+                    ElementCallAnalyticsFailureStage.MEDIA,
+                    ElementCallAnalyticsFailureStep.UNKNOWN
+                )
+            )
         assertThat(FailureReport.connectionClosed(MatrixRtcConnectionLossReason.TOKEN_ENDPOINT_UNSUPPORTED))
-            .isEqualTo(FailureReport(ElementCallAnalyticsFailureCause.TOKEN_ENDPOINT_UNSUPPORTED, ElementCallAnalyticsFailureStage.MEDIA, ElementCallAnalyticsFailureStep.MEDIA_TOKEN))
+            .isEqualTo(
+                FailureReport(
+                    ElementCallAnalyticsFailureCause.TOKEN_ENDPOINT_UNSUPPORTED,
+                    ElementCallAnalyticsFailureStage.MEDIA,
+                    ElementCallAnalyticsFailureStep.MEDIA_TOKEN
+                )
+            )
     }
 
     private companion object {
