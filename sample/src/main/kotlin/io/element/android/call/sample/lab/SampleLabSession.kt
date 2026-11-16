@@ -14,6 +14,7 @@ import io.element.android.call.api.rtc.MatrixRtcLogLevel
 import io.element.android.call.api.rtc.MatrixRtcLoggingConfiguration
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.impl.ElementCallStack
+import io.element.android.call.sample.SampleAnalytics
 import io.element.android.call.sample.matrix.SdkElementCallRoomContext
 import io.element.android.call.sample.matrix.SdkMatrixBackend
 import io.element.android.call.sample.matrix.runCatchingExceptions
@@ -390,6 +391,8 @@ class SampleLabSession private constructor(
                 .roomContext(SdkElementCallRoomContext(client))
                 // The host that wants control of the format (feature-hq 043 R13): the code's, or what Developer options set.
                 .preferencesStore(SampleLabPreferencesStore(context))
+                // Each event in the log, as the lab's runs read them (harness/lab.md).
+                .analytics(SampleAnalytics)
                 .options(
                     ElementCallOptions(
                         logging = MatrixRtcLoggingConfiguration(logLevel = MatrixRtcLogLevel.INFO, writesToLogcat = true),
