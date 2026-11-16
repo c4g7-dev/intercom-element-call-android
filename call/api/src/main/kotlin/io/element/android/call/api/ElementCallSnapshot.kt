@@ -249,6 +249,9 @@ sealed interface ElementCallFailure {
     /** The microphone permission was refused, so the call never joined (042 R5). Started again by the user after a grant. */
     data object MicrophoneRefused : ElementCallFailure
 
-    /** Anything else that stopped the call from starting. Developer text, shown as it is. */
-    data class Other(val message: String) : ElementCallFailure
+    /**
+     * Anything else that stopped the call from starting. Developer text, shown as it is. [isJoinFailure] when it stopped the
+     * join itself, up to and including the media connection, rather than something after it (feature-hq 043 R18).
+     */
+    data class Other(val message: String, val isJoinFailure: Boolean) : ElementCallFailure
 }

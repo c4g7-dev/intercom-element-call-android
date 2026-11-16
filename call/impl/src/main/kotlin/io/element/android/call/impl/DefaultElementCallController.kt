@@ -694,7 +694,7 @@ internal class DefaultElementCallController(
         updateState { it.copy(joiningFormat = membershipFormat) }
 
         val room = rtcClient.room(callData.roomId, membershipFormat).getOrElse {
-            fail("Join failed: ${it.message}")
+            fail("Join failed: ${it.message}", isJoinFailure = true)
             return
         }
         rtcRoom = room
@@ -707,7 +707,7 @@ internal class DefaultElementCallController(
             when (it) {
                 is MatrixRtcJoinException.TimedOut -> fail(ElementCallFailure.JoinTimedOut, "Join failed: ${it.message}")
                 is MatrixRtcJoinException.Refused -> fail(ElementCallFailure.JoinRefused, "Join failed: ${it.message}")
-                else -> fail("Join failed: ${it.message}")
+                else -> fail("Join failed: ${it.message}", isJoinFailure = true)
             }
             return
         }
@@ -738,7 +738,7 @@ internal class DefaultElementCallController(
             val joinObservers = startJoinObservers(joined)
             connectMediaAndObserve(joined, storedVideoCodec)?.let { failure ->
                 joinObservers.cancel()
-                fail(failure)
+                fail(failure, failure.message)
             }
         }
     }
@@ -769,12 +769,12 @@ internal class DefaultElementCallController(
     }
 
     /** Media, the microphone, the routing and the observers. @return what failed, or null. */
-    private suspend fun CoroutineScope.connectMediaAndObserve(joined: MatrixRtcCall, storedVideoCodec: MatrixRtcVideoCodec): String? {
+    private suspend fun CoroutineScope.connectMediaAndObserve(joined: MatrixRtcCall, storedVideoCodec: MatrixRtcVideoCodec): ElementCallFailure.Other? {
         // Asked here rather than at the start of the join: the room is open, so the core is loaded. A stored codec the
         // device cannot encode, from a restored backup or another device, publishes as Auto and stays stored (043 C2).
         val videoCodec = storedVideoCodec.takeIf { it in videoCodecs } ?: MatrixRtcVideoCodec.AUTO
         val connected = joined.connectMedia(isSfuFallbackEnabled = options.isSfuFallbackEnabled, videoCodec = videoCodec).getOrElse {
-            return "Media failed: ${it.message}"
+            return ElementCallFailure.Other("Media failed: ${it.message}", isJoinFailure = true)
         }
         call = connected
         connected.setComposedTiles(composedTiles)
@@ -797,7 +797,7 @@ internal class DefaultElementCallController(
                 Timber.i("ElementCall: publishing the microphone failed as the call ended: ${it.message}")
                 return null
             }
-            return "Microphone failed: ${it.message}"
+            return ElementCallFailure.Other("Microphone failed: ${it.message}", isJoinFailure = false)
         }
         Timber.i("ElementCall: connected as ${connected.localMemberId}")
 
@@ -1013,7 +1013,7 @@ internal class DefaultElementCallController(
         if (plays) soundEffectRenderer?.play(CallSoundEffect.RAISE_HAND)
     }
 
-    private fun fail(message: String) = fail(ElementCallFailure.Other(message), message)
+    private fun fail(message: String, isJoinFailure: Boolean) = fail(ElementCallFailure.Other(message, isJoinFailure), message)
 
     private fun fail(failure: ElementCallFailure, message: String) {
         Timber.w("ElementCall: $message")

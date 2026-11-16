@@ -351,10 +351,14 @@ class FakeMatrixRtcMediaSession(
     var switchCameraCount = 0
         private set
 
+    /** What [publishMicrophone] answers; the mute is recorded either way. */
+    var publishMicrophoneResult: () -> Result<Unit> = { Result.success(Unit) }
+
     suspend fun emit(event: MatrixRtcCallEvent) = _events.emit(event)
 
     override suspend fun publishMicrophone(muted: Boolean): Result<Unit> {
         publishMicrophoneCalls += muted
+        publishMicrophoneResult().onFailure { return Result.failure(it) }
         // As the real one does: the publication carries the mute, so the flow reports it from the
         // moment the microphone is up rather than only once someone toggles the button.
         _isMicrophoneMuted.value = muted

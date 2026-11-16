@@ -169,14 +169,14 @@ internal fun ElementCallFailure.title(): String = stringResource(
  * Whether the membership format may be why the call failed (feature-hq 043 R18): the call joined in MSC, and either the join
  * failed, or the media connection right after it was lost because the homeserver hands out no MSC4195 token (038 R44).
  * Judged by the failure and the format alone, never by error codes, which differ from one homeserver to another (C4).
- * A join failure in this library is any failure before media connects: the room open, the join and the media connection
- * all arrive as [ElementCallFailure.JoinRefused], [ElementCallFailure.JoinTimedOut] or [ElementCallFailure.Other].
+ * A join failure is the room open, the join or the media connection: [ElementCallFailure.JoinRefused],
+ * [ElementCallFailure.JoinTimedOut], or [ElementCallFailure.Other] marked [ElementCallFailure.Other.isJoinFailure].
  */
 internal fun ElementCallFailure.mayBeMembershipFormat(joiningFormat: MatrixRtcMembershipFormat?): Boolean {
     if (joiningFormat != MatrixRtcMembershipFormat.MSC) return false
     return when (this) {
-        ElementCallFailure.JoinRefused,
-        is ElementCallFailure.Other -> true
+        ElementCallFailure.JoinRefused -> true
+        is ElementCallFailure.Other -> isJoinFailure
         ElementCallFailure.JoinTimedOut -> TIMED_OUT_JOIN_MAY_BE_MEMBERSHIP_FORMAT
         is ElementCallFailure.ConnectionLost -> reason == MatrixRtcConnectionLossReason.TOKEN_ENDPOINT_UNSUPPORTED
         ElementCallFailure.MicrophoneRefused -> false
@@ -227,7 +227,7 @@ internal class ElementCallConnectionFailedPreviewParam : PreviewParameterProvide
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.BUDGET),
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.NEVER_CONNECTED),
         ElementCallFailure.JoinRefused,
-        ElementCallFailure.Other("Homeserver offers no LiveKit transport"),
+        ElementCallFailure.Other("Homeserver offers no LiveKit transport", isJoinFailure = true),
         ElementCallFailure.MicrophoneRefused,
     ).map(ElementCallConnection::Failed)
 }

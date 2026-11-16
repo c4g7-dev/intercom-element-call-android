@@ -20,7 +20,8 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
   them. The old On / Silent / Off value is not carried over: everyone starts with reactions shown with their sound.
 - `ElementCallController` replaces `setReactionsPreference` with `setShowsReactions` and `setPlaysReactionSounds`, and
   gains `setMembershipFormat`, `setVideoCodec` and `videoCodecs`. `MatrixRtcClient` gains `supportedVideoCodecs()` and
-  `MatrixRtcCall.connectMedia` a `videoCodec`, for a host with its own RTC client.
+  `MatrixRtcCall.connectMedia` a `videoCodec`, for a host with its own RTC client. `ElementCallFailure.Other` gains
+  `isJoinFailure`.
 - `ElementCallIcons` gains `settings` (Compound's settings-solid) and `developerOptions` (Compound's advanced-settings),
   with no defaults: a host constructing it passes both, Element X from `CompoundIcons`.
 

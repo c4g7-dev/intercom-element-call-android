@@ -20,7 +20,7 @@ class MayBeMembershipFormatTest {
         // The open-questions Q1 choice: a timed-out join names it too.
         ElementCallFailure.JoinTimedOut,
         // The room open, any other join error and the media connection during the join.
-        ElementCallFailure.Other("Join failed: no LiveKit transport of type m.livekit"),
+        ElementCallFailure.Other("Join failed: no LiveKit transport of type m.livekit", isJoinFailure = true),
     )
 
     @Test
@@ -37,8 +37,10 @@ class MayBeMembershipFormatTest {
     }
 
     @Test
-    fun `a refused microphone is never the format`() {
+    fun `a refused or failed microphone is never the format`() {
         assertThat(ElementCallFailure.MicrophoneRefused.mayBeMembershipFormat(MatrixRtcMembershipFormat.MSC)).isFalse()
+        val afterJoin = ElementCallFailure.Other("Microphone failed: no mic", isJoinFailure = false)
+        assertThat(afterJoin.mayBeMembershipFormat(MatrixRtcMembershipFormat.MSC)).isFalse()
     }
 
     @Test

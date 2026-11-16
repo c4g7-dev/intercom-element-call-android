@@ -25,7 +25,9 @@ import io.element.android.call.test.A_USER_ID
 import io.element.android.call.test.FakeElementCallLifecycleListener
 import io.element.android.call.test.FakeElementCallPreferencesStore
 import io.element.android.call.test.FakeElementCallRoomContextProvider
+import io.element.android.call.test.FakeMatrixRtcCall
 import io.element.android.call.test.FakeMatrixRtcClient
+import io.element.android.call.test.FakeMatrixRtcMediaSession
 import io.element.android.call.test.aRoster
 import io.element.android.call.test.aTile
 import io.element.android.call.test.audio.FakeAudioFocus
@@ -194,7 +196,7 @@ class CallSettingsTest {
 
         val connection = controller.state.value?.connection
         assertThat(connection).isInstanceOf(ElementCallConnection.Failed::class.java)
-        assertThat((connection as ElementCallConnection.Failed).failure).isInstanceOf(ElementCallFailure.Other::class.java)
+        assertThat(((connection as ElementCallConnection.Failed).failure as ElementCallFailure.Other).isJoinFailure).isTrue()
         assertThat(controller.state.value?.joiningFormat).isEqualTo(MatrixRtcMembershipFormat.MSC)
 
         // R18a, from the failure screen and without developer mode: saved, and nothing falls back on its own before that.
@@ -202,6 +204,22 @@ class CallSettingsTest {
         controller.setMembershipFormat(MatrixRtcMembershipFormat.ROOM_STATE)
         assertThat(store.membershipFormat).isEqualTo(MatrixRtcMembershipFormat.ROOM_STATE)
         assertThat(controller.state.value?.joiningFormat).isEqualTo(MatrixRtcMembershipFormat.MSC)
+    }
+
+    @Test
+    fun `a microphone that fails after an MSC join has connected media is not a join failure`() = runTest {
+        val session = FakeMatrixRtcMediaSession().apply { publishMicrophoneResult = { Result.failure(IllegalStateException("no mic")) } }
+        val call = FakeMatrixRtcCall(A_ROOM_ID, "m.call#room").apply { newMediaSession = { session } }
+        val store = FakeElementCallPreferencesStore(membershipFormat = MatrixRtcMembershipFormat.MSC)
+        val controller = createController(rtcClient = FakeMatrixRtcClient(joinResult = { Result.success(call) }), preferencesStore = store)
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        // Past the grace in which a publish failure waits for the call's own end.
+        advanceTimeBy(3.seconds)
+
+        val failure = (controller.state.value?.connection as ElementCallConnection.Failed).failure as ElementCallFailure.Other
+        assertThat(failure.message).contains("Microphone failed")
+        assertThat(failure.isJoinFailure).isFalse()
     }
 
     @Test
