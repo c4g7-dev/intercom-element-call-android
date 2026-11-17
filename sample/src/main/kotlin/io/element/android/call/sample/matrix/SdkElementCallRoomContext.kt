@@ -16,10 +16,11 @@ import io.element.android.call.api.rtc.id.UserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.Room
+import org.matrix.rustcomponents.sdk.RoomInfo
 import timber.log.Timber
 
 /**
@@ -44,22 +45,29 @@ class SdkElementCallRoomContext(
             Timber.w("ElementCallMatrix: $roomId is not a joined room, no room context for the call")
             return@flow
         }
-        // The first read may fetch the members from the homeserver, which a room we are joined to but have
-        // never opened needs. Later reads stay in the store: a room info update is not a reason to hit the
+        // The name and the DM flag go out first, with whatever members the store already has: the call decides
+        // between a DM and a group call from the first value, and must not wait on the network for it.
+        // Only then is the member list fetched from the homeserver, which a room we are joined to but have never
+        // opened needs, once. Later reads stay in the store: a room info update is not a reason to hit the
         // network again.
-        var hasLoadedMembers = false
+        var hasFetchedMembers = false
         emitAll(
-            room.roomInfoUpdates(dispatchers).map { info ->
-                val members = room.loadMembers(roomId, fromStoreOnly = hasLoadedMembers)
-                hasLoadedMembers = true
-                ElementCallRoomContext(
-                    displayName = info.displayName,
-                    isDm = info.isDm,
-                    members = members,
-                )
+            room.roomInfoUpdates(dispatchers).transform { info ->
+                emit(info.toRoomContext(room.loadMembers(roomId, fromStoreOnly = true)))
+                if (!hasFetchedMembers) {
+                    hasFetchedMembers = true
+                    emit(info.toRoomContext(room.loadMembers(roomId, fromStoreOnly = false)))
+                }
             }
         )
     }
+
+    private fun RoomInfo.toRoomContext(members: Map<UserId, ElementCallRoomMember>) =
+        ElementCallRoomContext(
+            displayName = displayName,
+            isDm = isDm,
+            members = members,
+        )
 
     private suspend fun Room.loadMembers(roomId: RoomId, fromStoreOnly: Boolean): Map<UserId, ElementCallRoomMember> =
         withContext(dispatchers.io) {
