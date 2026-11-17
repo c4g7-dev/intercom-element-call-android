@@ -19,7 +19,9 @@ import io.element.android.call.api.ElementCallInterruption
 import io.element.android.call.api.ElementCallOptions
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallRoomContext
+import io.element.android.call.api.ElementCallRoomContextProvider
 import io.element.android.call.api.ElementCallWindowRect
+import io.element.android.call.api.NoOpElementCallRoomContextProvider
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
 import io.element.android.call.api.rtc.MatrixRtcCallEnd
 import io.element.android.call.api.rtc.MatrixRtcCallEvent
@@ -1955,6 +1957,22 @@ class DefaultElementCallControllerTest {
         assertThat(controller.state.value?.roomName).isNull()
     }
 
+    /**
+     * The default provider completes without a value. That is a room it cannot describe, so the call is a group
+     * call and still joins, rather than the read throwing and failing the join.
+     */
+    @Test
+    fun `a provider that completes with nothing to say joins as a group call`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val controller = createController(rtcClient = rtcClient, roomContextProvider = NoOpElementCallRoomContextProvider, isAudioCall = false)
+
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+
+        assertThat(rtcClient.lastRoom?.lastKind).isInstanceOf(MatrixRtcCallKind.Group::class.java)
+        assertThat(controller.state.value?.connection).isEqualTo(ElementCallConnection.Connected)
+    }
+
     /** The room's name, direct flag and members reach the snapshot, which is what the bar and the tiles draw. */
     @Test
     fun `the room context is joined onto the call`() = runTest {
@@ -2322,7 +2340,7 @@ class DefaultElementCallControllerTest {
         isStartingCall: Boolean = true,
         ringLifetime: Duration? = null,
         roomIsDm: Boolean? = false,
-        roomContextProvider: FakeElementCallRoomContextProvider = FakeElementCallRoomContextProvider(
+        roomContextProvider: ElementCallRoomContextProvider = FakeElementCallRoomContextProvider(
             roomContext = roomIsDm?.let { ElementCallRoomContext(displayName = "A room", isDm = it, members = emptyMap()) },
         ),
         isScreenSharingEnabled: Boolean = false,

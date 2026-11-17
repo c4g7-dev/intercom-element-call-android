@@ -80,6 +80,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
@@ -389,7 +390,7 @@ internal class DefaultElementCallController(
         // Defaults to a group call rather than a ring if the room cannot be read in time: an unwanted
         // ring wakes people up, a missing one only makes the call quieter than it should have been.
         val isDm = withTimeoutOrNull(ROOM_CONTEXT_TIMEOUT_MS) {
-            roomContextProvider.roomContext(callData.roomId).first()
+            roomContextProvider.roomContext(callData.roomId).firstOrNull()
         }?.isDm == true
         val intent = if (callData.isAudioCall) MatrixRtcCallIntent.AUDIO else MatrixRtcCallIntent.VIDEO
         return when {
