@@ -162,22 +162,30 @@ class CallAnalyticsTest {
     }
 
     @Test
-    fun `the call does not wait on analytics, and a provider that never answers reports at the end as a group call`() = runTest {
-        val provider = FakeElementCallRoomContextProvider(roomContext = null)
-        val controller = createController(roomContextProvider = provider)
+    fun `the call does not wait on analytics, and a refusal with no room context yet is a group call`() = runTest {
+        val controller = createController(roomContextProvider = FakeElementCallRoomContextProvider(roomContext = null))
         controller.setMicrophonePermissionGranted(false)
         runCurrent()
         assertThat(controller.state.value?.connection).isEqualTo(ElementCallConnection.Failed(ElementCallFailure.MicrophoneRefused))
-        assertThat(analytics.events).isEmpty()
+        assertThat(analytics.anonymous()).containsExactly(attempted(GROUP), outcome(ElementCallAnalyticsOutcome.PERMISSION_REFUSED)).inOrder()
 
         controller.hangUp()
         runCurrent()
         assertThat(controller.state.value).isNull()
-        assertThat(analytics.anonymous()).containsExactly(attempted(GROUP), outcome(ElementCallAnalyticsOutcome.PERMISSION_REFUSED)).inOrder()
+        assertThat(analytics.events).hasSize(2)
     }
 
     @Test
-    fun `a hang-up before anything answers is abandoned, as a group call, from the end`() = runTest {
+    fun `a hang-up before the join decides takes the room's kind from the snapshot`() = runTest {
+        val controller = createController(isDm = true)
+        assertThat(controller.state.value?.isDm).isTrue()
+        controller.hangUp()
+        runCurrent()
+        assertThat(analytics.anonymous()).containsExactly(attempted(DM), outcome(ElementCallAnalyticsOutcome.ABANDONED, DM)).inOrder()
+    }
+
+    @Test
+    fun `a hang-up before anything is known of the room is a group call`() = runTest {
         val controller = createController(roomContextProvider = FakeElementCallRoomContextProvider(roomContext = null))
         controller.hangUp()
         runCurrent()
@@ -186,32 +194,29 @@ class CallAnalyticsTest {
     }
 
     @Test
-    fun `a provider with no room knowledge at all leaves a refusal to the end, as a group call`() = runTest {
+    fun `a provider with no room knowledge at all makes a refusal a group call`() = runTest {
         val controller = createController(roomContextProvider = null)
         controller.setMicrophonePermissionGranted(false)
-        runCurrent()
-        assertThat(analytics.events).isEmpty()
-
-        controller.hangUp()
         runCurrent()
         assertThat(analytics.anonymous()).containsExactly(attempted(GROUP), outcome(ElementCallAnalyticsOutcome.PERMISSION_REFUSED)).inOrder()
     }
 
     @Test
-    fun `a refusal reported before the room is known goes out as the room answers`() = runTest {
+    fun `the join's decision wins over the snapshot once it exists`() = runTest {
+        val joinGate = CompletableDeferred<Unit>()
         val provider = FakeElementCallRoomContextProvider(roomContext = null)
-        val controller = createController(roomContextProvider = provider)
-        controller.setMicrophonePermissionGranted(false)
-        runCurrent()
-        assertThat(analytics.events).isEmpty()
-
+        val controller = createController(rtcClient = FakeMatrixRtcClient(joinGate = joinGate), roomContextProvider = provider)
+        controller.setMicrophonePermissionGranted(true)
+        advanceTimeBy(2.seconds)
+        // The join has fallen back to a group call; the room turns out to be a DM before the join returns.
         provider.roomContext.value = aRoomContext(isDm = true)
         runCurrent()
-        assertThat(analytics.anonymous()).containsExactly(attempted(DM), outcome(ElementCallAnalyticsOutcome.PERMISSION_REFUSED, DM)).inOrder()
-
+        assertThat(controller.state.value?.isDm).isTrue()
         controller.hangUp()
         runCurrent()
-        assertThat(analytics.events).hasSize(2)
+
+        assertThat(analytics.anonymous()).containsExactly(attempted(GROUP), outcome(ElementCallAnalyticsOutcome.ABANDONED)).inOrder()
+        joinGate.complete(Unit)
     }
 
     @Test

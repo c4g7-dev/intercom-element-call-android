@@ -30,27 +30,28 @@ import java.util.UUID
  * and at most one end. Events go to [analytics] in line, from the controller's own transitions; nothing here waits or
  * launches (R20). Synchronized, because the controller's collectors and its locked teardown both drive it.
  *
- * Until the join decides DM or group, an outcome is held, not sent: `CallJoinAttempted` has to carry the kind (R25), and
- * the call must not wait for it. A held outcome goes out with the early read's answer, or at [attemptOver] as a group call,
- * the join's own fallback (C10).
+ * `CallJoinAttempted` carries the join's own DM decision (R25, C10). An attempt that ends before the join decides takes
+ * [undecidedCallKind] at that moment instead, and reports its attempt and outcome at once (C4).
  */
 internal class ElementCallAnalyticsReporter(
     private val analytics: ElementCallAnalytics,
     private val elapsedRealtimeMs: () -> Long,
+    /** DM or group for an attempt that ends before the join decides: what the room is known to be by then. */
+    private val undecidedCallKind: () -> ElementCallAnalyticsCallKind,
     /** Random, from nothing about the user, the room or the device (R19). */
     val id: String = UUID.randomUUID().toString(),
 ) {
-    private sealed interface Held {
-        data object PermissionRefused : Held
+    private sealed interface Outcome {
+        data object PermissionRefused : Outcome
 
-        data class Failed(val report: FailureReport) : Held
+        data class Failed(val report: FailureReport) : Outcome
 
-        data class Abandoned(val endReason: ElementCallEndReason?) : Held
+        data class Abandoned(val endReason: ElementCallEndReason?) : Outcome
     }
 
     private sealed interface Phase {
-        /** Before the join's DM decision. [readKind] is the early read's answer; [held] the first outcome reached meanwhile. */
-        data class Requested(val readKind: ElementCallAnalyticsCallKind?, val held: Held?) : Phase
+        /** Before the join's DM decision. */
+        data object Requested : Phase
 
         data class Joining(val kind: ElementCallAnalyticsCallKind, val isOwnMediaConnected: Boolean, val isMicrophonePublished: Boolean) : Phase
 
@@ -59,29 +60,18 @@ internal class ElementCallAnalyticsReporter(
         data object Over : Phase
     }
 
-    private var phase: Phase = Phase.Requested(readKind = null, held = null)
+    private var phase: Phase = Phase.Requested
 
-    /** The join decided DM or group, before anything is joined (R6, R25). Sends any outcome held until then. */
+    /** The join decided DM or group, before anything is joined (R6, R25). */
     @Synchronized
     fun attempted(callKind: ElementCallAnalyticsCallKind) {
-        val requested = phase as? Phase.Requested ?: return skipped("attempted")
-        sendAttempted(callKind, requested.held)
+        if (phase != Phase.Requested) return skipped("attempted")
+        sendAttempted(callKind, outcome = null)
     }
 
-    /** The early read answered. Used only for an outcome reached before the join decided (R25). */
-    @Synchronized
-    fun roomKindRead(callKind: ElementCallAnalyticsCallKind) {
-        val requested = phase as? Phase.Requested ?: return
-        if (requested.held != null) sendAttempted(callKind, requested.held) else phase = requested.copy(readKind = callKind)
-    }
-
-    /** The attempt is over: an outcome still held for want of a kind goes out, as a group call if nothing answered. */
+    /** The attempt is over; nothing it does afterwards is reported. */
     @Synchronized
     fun attemptOver() {
-        val requested = phase as? Phase.Requested
-        if (requested?.held != null) {
-            sendAttempted(requested.readKind ?: ElementCallAnalyticsCallKind.GROUP, requested.held)
-        }
         phase = Phase.Over
     }
 
@@ -109,7 +99,7 @@ internal class ElementCallAnalyticsReporter(
 
     /** The microphone permission was refused (R10). */
     @Synchronized
-    fun permissionRefused() = reachOutcome(Held.PermissionRefused, "permissionRefused")
+    fun permissionRefused() = reachOutcome(Outcome.PermissionRefused, "permissionRefused")
 
     /** A failure; joining or in the call from our own history, never from the failure's type (R15). */
     @Synchronized
@@ -122,7 +112,7 @@ internal class ElementCallAnalyticsReporter(
                     ElementCallAnalyticsEvent.CallFailure(id, current.kind, ElementCallAnalyticsFailurePhase.IN_CALL, report.cause, null, null, null),
                 )
             }
-            else -> reachOutcome(Held.Failed(report), "failed")
+            else -> reachOutcome(Outcome.Failed(report), "failed")
         }
     }
 
@@ -131,7 +121,7 @@ internal class ElementCallAnalyticsReporter(
     fun hungUp() {
         when (val current = phase) {
             is Phase.Connected -> end(current, ElementCallEndReason.LEFT)
-            else -> reachOutcome(Held.Abandoned(endReason = null), "hungUp")
+            else -> reachOutcome(Outcome.Abandoned(endReason = null), "hungUp")
         }
     }
 
@@ -140,7 +130,7 @@ internal class ElementCallAnalyticsReporter(
     fun ended(reason: ElementCallEndReason) {
         when (val current = phase) {
             is Phase.Connected -> end(current, reason)
-            else -> reachOutcome(Held.Abandoned(endReason = reason.takeUnless { it == ElementCallEndReason.LEFT }), "ended")
+            else -> reachOutcome(Outcome.Abandoned(endReason = reason.takeUnless { it == ElementCallEndReason.LEFT }), "ended")
         }
     }
 
@@ -180,37 +170,33 @@ internal class ElementCallAnalyticsReporter(
         ended(end.toEndReason())
     }
 
-    private fun reachOutcome(outcome: Held, transition: String) {
+    private fun reachOutcome(outcome: Outcome, transition: String) {
         when (val current = phase) {
-            is Phase.Requested -> when {
-                current.held != null -> skipped(transition)
-                current.readKind != null -> sendAttempted(current.readKind, outcome)
-                else -> phase = current.copy(held = outcome)
-            }
+            Phase.Requested -> sendAttempted(undecidedCallKind(), outcome)
             is Phase.Joining -> sendOutcome(current.kind, outcome)
             is Phase.Connected, Phase.Over -> skipped(transition)
         }
     }
 
-    private fun sendAttempted(kind: ElementCallAnalyticsCallKind, held: Held?) {
+    private fun sendAttempted(kind: ElementCallAnalyticsCallKind, outcome: Outcome?) {
         send(ElementCallAnalyticsEvent.CallJoinAttempted(id, kind))
-        if (held != null) {
-            sendOutcome(kind, held)
+        if (outcome != null) {
+            sendOutcome(kind, outcome)
         } else {
             phase = Phase.Joining(kind, isOwnMediaConnected = false, isMicrophonePublished = false)
         }
     }
 
     /** The outcome, then its failure (C4). */
-    private fun sendOutcome(kind: ElementCallAnalyticsCallKind, outcome: Held) {
+    private fun sendOutcome(kind: ElementCallAnalyticsCallKind, outcome: Outcome) {
         phase = Phase.Over
         val event = when (outcome) {
-            Held.PermissionRefused -> ElementCallAnalyticsEvent.CallJoinOutcome(id, kind, ElementCallAnalyticsOutcome.PERMISSION_REFUSED, endReason = null)
-            is Held.Failed -> ElementCallAnalyticsEvent.CallJoinOutcome(id, kind, ElementCallAnalyticsOutcome.FAILED, endReason = null)
-            is Held.Abandoned -> ElementCallAnalyticsEvent.CallJoinOutcome(id, kind, ElementCallAnalyticsOutcome.ABANDONED, outcome.endReason)
+            Outcome.PermissionRefused -> ElementCallAnalyticsEvent.CallJoinOutcome(id, kind, ElementCallAnalyticsOutcome.PERMISSION_REFUSED, endReason = null)
+            is Outcome.Failed -> ElementCallAnalyticsEvent.CallJoinOutcome(id, kind, ElementCallAnalyticsOutcome.FAILED, endReason = null)
+            is Outcome.Abandoned -> ElementCallAnalyticsEvent.CallJoinOutcome(id, kind, ElementCallAnalyticsOutcome.ABANDONED, outcome.endReason)
         }
         send(event)
-        if (outcome is Held.Failed) {
+        if (outcome is Outcome.Failed) {
             val report = outcome.report
             send(
                 ElementCallAnalyticsEvent.CallFailure(

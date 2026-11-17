@@ -84,7 +84,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
@@ -308,12 +307,6 @@ internal class DefaultElementCallController(
     private var reporter: ElementCallAnalyticsReporter? = null
 
     /**
-     * Whether the room is a DM, for the analytics of an attempt that ends before the join decides it (044 R25). Only the
-     * reporter reads it: the join keeps its own read, its timeout and its fallback.
-     */
-    private var earlyKindReadJob: Job? = null
-
-    /**
      * One shared video flow per member and stream kind, so however many tiles draw something, one
      * stream is open. Keyed by member id, which is minted fresh per join, so entries cannot outlive
      * their meaning - and by kind, because a member sharing their screen while their camera is on has
@@ -391,11 +384,8 @@ internal class DefaultElementCallController(
                 // moment and a call labelled with a room id would be worse than one labelled late.
                 roomJob = scope.launch { observeRoom(callData) }
                 // At the request, not the grant: a refused microphone is an outcome of this attempt (044 R10).
-                val attempt = ElementCallAnalyticsReporter(analytics, platform::elapsedRealtimeMs)
-                reporter = attempt
-                // A provider that completes with nothing to say leaves the kind to the end, as a group call.
-                earlyKindReadJob =
-                    scope.launch { roomContextProvider.roomContext(callData.roomId).firstOrNull()?.let { attempt.roomKindRead(callKindOf(it.isDm)) } }
+                // An attempt that ends before the join decides DM or group takes what the room is known to be (044 R25).
+                reporter = ElementCallAnalyticsReporter(analytics, platform::elapsedRealtimeMs, undecidedCallKind = { callKindOf(_state.value?.isDm == true) })
             }
         }
     }
@@ -721,7 +711,6 @@ internal class DefaultElementCallController(
         rtcRoom = room
         val kind = callKindFor(callData)
         // The join's own decision, fallback included, before anything is joined (044 R6, R25, C10).
-        earlyKindReadJob?.cancel()
         attempt.attempted(callKindOf(isDm = kind is MatrixRtcCallKind.Direct))
         // A DM call we start shows that it is calling from here, before the join returns (030 C3).
         if (kind is MatrixRtcCallKind.Direct && kind.ring != null) {
@@ -1051,7 +1040,6 @@ internal class DefaultElementCallController(
             endedCallData = _state.value?.callData
             // Before any teardown (044 R13, C3). An end the core already reported has made these no-ops; one it has set but
             // the status observer has not reached yet is still the core's.
-            earlyKindReadJob?.cancel()
             reporter?.callOver(coreEnd = (rtcCall?.status?.value as? MatrixRtcCallStatus.Ended)?.reason)
             reporter = null
             callJob?.cancel()

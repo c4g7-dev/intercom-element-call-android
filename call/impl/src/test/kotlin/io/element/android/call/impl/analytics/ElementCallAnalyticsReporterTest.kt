@@ -37,7 +37,8 @@ import org.junit.Test
 class ElementCallAnalyticsReporterTest {
     private var nowMs = 1_000L
     private val analytics = FakeElementCallAnalytics()
-    private val reporter = ElementCallAnalyticsReporter(analytics, elapsedRealtimeMs = { nowMs }, id = AN_ID)
+    private var roomKind = GROUP
+    private val reporter = ElementCallAnalyticsReporter(analytics, elapsedRealtimeMs = { nowMs }, undecidedCallKind = { roomKind }, id = AN_ID)
 
     private val joinRefused = FailureReport(
         ElementCallAnalyticsFailureCause.JOIN_REFUSED,
@@ -63,29 +64,34 @@ class ElementCallAnalyticsReporterTest {
     }
 
     @Test
-    fun `an outcome before the join decided waits for the early read, and goes out with its kind`() {
+    fun `an outcome before the join decided goes out at once, with what the room is known to be then`() {
+        roomKind = DM
         reporter.permissionRefused()
-        assertThat(analytics.events).isEmpty()
-
-        reporter.roomKindRead(DM)
         assertThat(analytics.events).containsExactly(
             CallJoinAttempted(AN_ID, DM),
             outcome(ElementCallAnalyticsOutcome.PERMISSION_REFUSED, DM),
         ).inOrder()
 
         reporter.attemptOver()
+        reporter.attempted(GROUP)
         assertThat(analytics.events).hasSize(2)
     }
 
     @Test
-    fun `a held outcome goes out at the end as a group call when nothing answered`() {
+    fun `the room's kind is read when the outcome is reached, not when the attempt starts`() {
+        roomKind = GROUP
+        val other = FakeElementCallAnalytics()
+        val late = ElementCallAnalyticsReporter(other, { 0 }, { roomKind }, AN_ID)
+        roomKind = DM
+        late.hungUp()
+        assertThat(other.events).containsExactly(CallJoinAttempted(AN_ID, DM), outcome(ElementCallAnalyticsOutcome.ABANDONED, DM)).inOrder()
+    }
+
+    @Test
+    fun `a failure before the join decided is the attempt, the outcome, then the failure`() {
         reporter.failed(
             FailureReport(ElementCallAnalyticsFailureCause.OTHER, ElementCallAnalyticsFailureStage.HOMESERVER, ElementCallAnalyticsFailureStep.UNKNOWN)
         )
-        reporter.hungUp()
-        assertThat(analytics.events).isEmpty()
-
-        reporter.attemptOver()
         assertThat(analytics.events).containsExactly(
             CallJoinAttempted(AN_ID, GROUP),
             outcome(ElementCallAnalyticsOutcome.FAILED),
@@ -96,48 +102,27 @@ class ElementCallAnalyticsReporterTest {
                 ElementCallAnalyticsFailureCause.OTHER,
                 ElementCallAnalyticsFailureStage.HOMESERVER,
                 ElementCallAnalyticsFailureStep.UNKNOWN,
-                null
+                null,
             ),
         ).inOrder()
-
-        reporter.roomKindRead(DM)
-        assertThat(analytics.events).hasSize(3)
     }
 
     @Test
     fun `a hang-up before the join decided is abandoned without an end reason`() {
         reporter.hungUp()
-        reporter.roomKindRead(GROUP)
         assertThat(analytics.events).containsExactly(CallJoinAttempted(AN_ID, GROUP), outcome(ElementCallAnalyticsOutcome.ABANDONED)).inOrder()
     }
 
     @Test
-    fun `the early read with no outcome held sends nothing, and an outcome reached after it goes out at once with its kind`() {
-        reporter.roomKindRead(DM)
-        assertThat(analytics.events).isEmpty()
-
-        reporter.hungUp()
-        assertThat(analytics.events).containsExactly(CallJoinAttempted(AN_ID, DM), outcome(ElementCallAnalyticsOutcome.ABANDONED, DM)).inOrder()
-    }
-
-    @Test
-    fun `the early read is never used once the join has decided`() {
-        reporter.roomKindRead(DM)
+    fun `the join's decision wins over the room's kind once it exists`() {
+        roomKind = DM
         reporter.attempted(GROUP)
-        reporter.roomKindRead(DM)
         reporter.hungUp()
         assertThat(analytics.events.map { it.callKind }).containsExactly(GROUP, GROUP)
     }
 
     @Test
-    fun `an outcome held for the join is sent after the attempt when the join decides`() {
-        reporter.hungUp()
-        reporter.attempted(DM)
-        assertThat(analytics.events).containsExactly(CallJoinAttempted(AN_ID, DM), outcome(ElementCallAnalyticsOutcome.ABANDONED, DM)).inOrder()
-    }
-
-    @Test
-    fun `the first outcome held wins`() {
+    fun `the first outcome wins`() {
         reporter.permissionRefused()
         reporter.hungUp()
         reporter.failed(joinRefused)
@@ -229,7 +214,7 @@ class ElementCallAnalyticsReporterTest {
         )
         otherSide.forEach { reason ->
             val analytics = FakeElementCallAnalytics()
-            ElementCallAnalyticsReporter(analytics, { 0 }, AN_ID).apply {
+            ElementCallAnalyticsReporter(analytics, { 0 }, { GROUP }, AN_ID).apply {
                 attempted(GROUP)
                 ended(reason)
                 hungUp()
@@ -308,7 +293,6 @@ class ElementCallAnalyticsReporterTest {
         connect()
         reporter.attempted(DM)
         reporter.permissionRefused()
-        reporter.roomKindRead(DM)
         reporter.ownMediaConnected(1)
         reporter.microphonePublished(1)
         assertThat(analytics.events).hasSize(2)
@@ -323,8 +307,8 @@ class ElementCallAnalyticsReporterTest {
 
     @Test
     fun `every event of an attempt carries its id and kind, and two attempts have different ids`() {
-        val first = ElementCallAnalyticsReporter(analytics, { nowMs })
-        val second = ElementCallAnalyticsReporter(analytics, { nowMs })
+        val first = ElementCallAnalyticsReporter(analytics, { nowMs }, { GROUP })
+        val second = ElementCallAnalyticsReporter(analytics, { nowMs }, { GROUP })
         assertThat(first.id).isNotEqualTo(second.id)
         first.attempted(DM)
         first.ownMediaConnected(1)
@@ -348,7 +332,7 @@ class ElementCallAnalyticsReporterTest {
         assertThat(events[2].properties.keys).isEqualTo(common + setOf("phase", "cause", "stage", "step"))
 
         val connected = FakeElementCallAnalytics()
-        ElementCallAnalyticsReporter(connected, { 0 }, AN_ID).apply {
+        ElementCallAnalyticsReporter(connected, { 0 }, { GROUP }, AN_ID).apply {
             attempted(GROUP)
             ended(ElementCallEndReason.DECLINED)
         }
@@ -398,7 +382,7 @@ class ElementCallAnalyticsReporterTest {
         assertThat((analytics.events.last() as CallFailure).errcode).isNull()
 
         val other = FakeElementCallAnalytics()
-        ElementCallAnalyticsReporter(other, { 0 }, AN_ID).apply {
+        ElementCallAnalyticsReporter(other, { 0 }, { GROUP }, AN_ID).apply {
             attempted(GROUP)
             failed(joinRefused.copy(cause = ElementCallAnalyticsFailureCause.JOIN_TIMED_OUT))
         }
@@ -411,7 +395,7 @@ class ElementCallAnalyticsReporterTest {
         val throwing = ElementCallAnalyticsReporter({
             calls++
             error("the host broke")
-        }, { 0 }, AN_ID)
+        }, { 0 }, { GROUP }, AN_ID)
         throwing.attempted(GROUP)
         throwing.hungUp()
         assertThat(calls).isEqualTo(2)
@@ -467,7 +451,7 @@ class ElementCallAnalyticsReporterTest {
         assertThat(analytics.events.last()).isEqualTo(CallParticipationEnded(AN_ID, GROUP, ElementCallEndReason.LEFT, durationMs = 0, participantsMax = 4))
 
         val other = FakeElementCallAnalytics()
-        ElementCallAnalyticsReporter(other, { 0 }, AN_ID).apply {
+        ElementCallAnalyticsReporter(other, { 0 }, { GROUP }, AN_ID).apply {
             attempted(DM)
             callOver(coreEnd = MatrixRtcCallEnd.Declined)
         }
