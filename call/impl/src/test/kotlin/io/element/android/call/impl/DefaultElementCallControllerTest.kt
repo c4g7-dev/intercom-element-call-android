@@ -20,6 +20,7 @@ import io.element.android.call.api.ElementCallOptions
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallRoomContext
 import io.element.android.call.api.ElementCallWindowRect
+import io.element.android.call.api.analytics.NoOpElementCallAnalytics
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
 import io.element.android.call.api.rtc.MatrixRtcCallEnd
 import io.element.android.call.api.rtc.MatrixRtcCallEvent
@@ -369,7 +370,7 @@ class DefaultElementCallControllerTest {
         controller.setMicrophonePermissionGranted(true)
         runCurrent()
 
-        assertThat(controller.state.value?.connection).isEqualTo(ElementCallConnection.Failed(ElementCallFailure.JoinRefused))
+        assertThat(controller.state.value?.connection).isEqualTo(ElementCallConnection.Failed(ElementCallFailure.JoinRefused(errcode = "M_FORBIDDEN")))
     }
 
     @Test
@@ -2347,6 +2348,7 @@ class DefaultElementCallControllerTest {
                 isDeveloperModeEnabled = isDeveloperModeEnabled,
             ),
             preferencesStore = preferencesStore,
+            analytics = NoOpElementCallAnalytics,
         )
         controller.startCall(ElementCallData(roomId = A_ROOM_ID, isAudioCall = isAudioCall, isStartingCall = isStartingCall))
         runCurrent()

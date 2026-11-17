@@ -243,8 +243,8 @@ sealed interface ElementCallFailure {
     /** The homeserver did not let the join complete in time. */
     data object JoinTimedOut : ElementCallFailure
 
-    /** The homeserver refused the join for good. */
-    data object JoinRefused : ElementCallFailure
+    /** The homeserver refused the join for good; [errcode] is its Matrix error code as it sent it, when it gave one. */
+    data class JoinRefused(val errcode: String?) : ElementCallFailure
 
     /** The microphone permission was refused, so the call never joined (042 R5). Started again by the user after a grant. */
     data object MicrophoneRefused : ElementCallFailure

@@ -14,6 +14,7 @@ import io.element.android.call.api.ElementCallFailure
 import io.element.android.call.api.ElementCallOptions
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallRoomContext
+import io.element.android.call.api.analytics.NoOpElementCallAnalytics
 import io.element.android.call.api.rtc.MatrixRtcCallEvent
 import io.element.android.call.api.rtc.MatrixRtcJoinException
 import io.element.android.call.api.rtc.MatrixRtcLocalState
@@ -280,6 +281,7 @@ class CallSettingsTest {
             ),
             options = ElementCallOptions(isDeveloperModeEnabled = isDeveloperModeEnabled),
             preferencesStore = preferencesStore,
+            analytics = NoOpElementCallAnalytics,
         )
         controller.startCall(ElementCallData(roomId = A_ROOM_ID, isAudioCall = true, isStartingCall = true))
         runCurrent()

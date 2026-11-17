@@ -24,6 +24,12 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
   `isJoinFailure`.
 - `ElementCallIcons` gains `settings` (Compound's settings-solid) and `developerOptions` (Compound's advanced-settings),
   with no defaults: a host constructing it passes both, Element X from `CompoundIcons`.
+- Native call analytics (feature-hq 044). `ElementCallStack.Builder.analytics` takes an `ElementCallAnalytics`, which
+  receives four events per call (`ElementCallAnalyticsEvent`); the default, `NoOpElementCallAnalytics`, drops them. A host
+  forwards each event's `name` and `properties` unchanged, with the user's analytics consent. Hang up before cancelling the
+  stack's scope, or the call's end is not reported.
+- `ElementCallFailure.JoinRefused` is a class carrying the homeserver's `errcode`: a host matching it by value matches by
+  type. `MatrixRtcJoinException` gains `SlotClosed`, for a host with its own RTC client.
 
 ## 0.1.1 - 2026-11-12
 

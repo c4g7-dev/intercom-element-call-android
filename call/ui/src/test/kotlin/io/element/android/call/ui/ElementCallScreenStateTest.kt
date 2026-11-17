@@ -880,7 +880,7 @@ class ElementCallScreenStateTest {
     fun `use room state saves room state, then closes the call`() = runTest {
         val controller = FakeElementCallController(
             initialState = aConnectedSnapshot().copy(
-                connection = ElementCallConnection.Failed(ElementCallFailure.JoinRefused),
+                connection = ElementCallConnection.Failed(ElementCallFailure.JoinRefused(errcode = null)),
                 joiningFormat = MatrixRtcMembershipFormat.MSC,
             ),
             isDeveloperModeEnabled = false,
