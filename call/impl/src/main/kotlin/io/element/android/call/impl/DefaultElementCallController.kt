@@ -456,11 +456,12 @@ internal class DefaultElementCallController(
                 platform.startForegroundService()
                 audioFocus.requestAudioFocus {}
 
+                // Read under the lock: endCall clears the field, and the launched body may run after it has.
+                val attempt = checkNotNull(reporter)
                 callJob = scope.launch {
                     // From the start, not the join: a join made during an outage is when the user first needs it (034 C4).
                     launch { followInterruptions() }
-                    // Made with the snapshot and dropped with it, under this lock.
-                    runCall(current.callData, checkNotNull(reporter))
+                    runCall(current.callData, attempt)
                 }
             }
         }

@@ -55,7 +55,7 @@ internal class ElementCallAnalyticsReporter(
 
         data class Joining(val kind: ElementCallAnalyticsCallKind, val isOwnMediaConnected: Boolean, val isMicrophonePublished: Boolean) : Phase
 
-        data class Connected(val kind: ElementCallAnalyticsCallKind, val atMs: Long, val participantsMax: Int, val hasFailed: Boolean) : Phase
+        data class Connected(val kind: ElementCallAnalyticsCallKind, val atMs: Long, val participantsMax: Int) : Phase
 
         data object Over : Phase
     }
@@ -105,13 +105,9 @@ internal class ElementCallAnalyticsReporter(
     @Synchronized
     fun failed(report: FailureReport) {
         when (val current = phase) {
-            is Phase.Connected -> {
-                if (current.hasFailed) return skipped("failed")
-                phase = current.copy(hasFailed = true)
-                send(
-                    ElementCallAnalyticsEvent.CallFailure(id, current.kind, ElementCallAnalyticsFailurePhase.IN_CALL, report.cause, null, null, null),
-                )
-            }
+            is Phase.Connected -> send(
+                ElementCallAnalyticsEvent.CallFailure(id, current.kind, ElementCallAnalyticsFailurePhase.IN_CALL, report.cause, null, null, null),
+            )
             else -> reachOutcome(Outcome.Failed(report), "failed")
         }
     }
@@ -217,7 +213,7 @@ internal class ElementCallAnalyticsReporter(
             phase = joining
             return
         }
-        phase = Phase.Connected(joining.kind, atMs = elapsedRealtimeMs(), participantsMax = participants.coerceAtLeast(1), hasFailed = false)
+        phase = Phase.Connected(joining.kind, atMs = elapsedRealtimeMs(), participantsMax = participants.coerceAtLeast(1))
         send(ElementCallAnalyticsEvent.CallJoinOutcome(id, joining.kind, ElementCallAnalyticsOutcome.CONNECTED, endReason = null))
     }
 
@@ -228,7 +224,7 @@ internal class ElementCallAnalyticsReporter(
     }
 
     private fun send(event: ElementCallAnalyticsEvent) {
-        Timber.d("ElementCall: analytics ${event.name} ${event.properties}")
+        Timber.d("ElementCall: analytics ${event.name} $id")
         runCatchingExceptions { analytics.track(event) }
             .onFailure { Timber.w(it, "ElementCall: the host's analytics receiver threw on ${event.name}") }
     }

@@ -226,7 +226,7 @@ internal class ElementCallConnectionFailedPreviewParam : PreviewParameterProvide
     override val values = sequenceOf(
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.BUDGET),
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.NEVER_CONNECTED),
-        ElementCallFailure.JoinRefused(),
+        ElementCallFailure.JoinRefused(errcode = null),
         ElementCallFailure.Other("Homeserver offers no LiveKit transport", isJoinFailure = true),
         ElementCallFailure.MicrophoneRefused,
     ).map(ElementCallConnection::Failed)
@@ -240,7 +240,7 @@ internal fun CallFailurePreview(@PreviewParameter(ElementCallConnectionFailedPre
 
 internal class MscElementCallConnectionFailedPreviewParam : PreviewParameterProvider<ElementCallConnection.Failed> {
     override val values = sequenceOf(
-        ElementCallFailure.JoinRefused(),
+        ElementCallFailure.JoinRefused(errcode = null),
         ElementCallFailure.ConnectionLost(MatrixRtcConnectionLossReason.TOKEN_ENDPOINT_UNSUPPORTED),
     ).map(ElementCallConnection::Failed)
 }

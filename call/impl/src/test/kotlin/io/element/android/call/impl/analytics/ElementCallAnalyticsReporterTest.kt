@@ -257,8 +257,8 @@ class ElementCallAnalyticsReporterTest {
     fun `a failure after connected is in the call, with no stage or step, then the end`() {
         connect()
         reporter.failed(FailureReport.connectionClosed(MatrixRtcConnectionLossReason.BUDGET))
-        reporter.failed(FailureReport.connectionClosed(MatrixRtcConnectionLossReason.REFUSED))
         reporter.ended(ElementCallEndReason.CONNECTION_CLOSED)
+        reporter.failed(FailureReport.connectionClosed(MatrixRtcConnectionLossReason.REFUSED))
         reporter.hungUp()
         assertThat(analytics.events.drop(2)).containsExactly(
             CallFailure(AN_ID, GROUP, ElementCallAnalyticsFailurePhase.IN_CALL, ElementCallAnalyticsFailureCause.CONNECTION_LOST_BUDGET, null, null, null),
