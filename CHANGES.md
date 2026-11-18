@@ -12,6 +12,10 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 ## Unreleased
 
+_Nothing yet._
+
+## 0.1.2 - 2026-11-18
+
 - The call settings (feature-hq 043). `ElementCallOptions.membershipFormat` is removed: the format is a device preference,
   `ElementCallPreferencesStore.membershipFormat`, Room state until the user changes it in Developer options. A host
   that chose the format passes its own store to `ElementCallStack.Builder.preferencesStore`.
@@ -30,6 +34,17 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
   stack's scope, or the call's end is not reported.
 - `ElementCallFailure.JoinRefused` is a class carrying the homeserver's `errcode`: a host matching it by value matches by
   type. `MatrixRtcJoinException` gains `SlotClosed`, for a host with its own RTC client.
+
+
+
+### What's Changed
+
+✨ Features
+* A settings menu with Preferences and Developer options, choosing the membership format and video codec by @BillCarsonFr in https://github.com/element-hq/element-call-android/pull/92
+* Call analytics: the host receives join, outcome, failure and end events for each call. by @BillCarsonFr in https://github.com/element-hq/element-call-android/pull/93
+
+
+**Full Changelog**: https://github.com/element-hq/element-call-android/compare/v0.1.1...v0.1.2
 
 ## 0.1.1 - 2026-11-12
 
