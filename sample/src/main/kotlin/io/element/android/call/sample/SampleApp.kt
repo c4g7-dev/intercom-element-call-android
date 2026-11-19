@@ -80,7 +80,7 @@ fun SampleApp(
         Box(modifier = modifier) {
             ElementCallOverlay(
                 controller = controller,
-                style = if (harness.isStyleOverridden) rememberLoudElementCallStyle() else null,
+                style = harness.rememberCallStyle(),
             ) { contentModifier ->
                 Column(modifier = contentModifier) {
                     when (harness.tab) {

@@ -57,6 +57,8 @@ class SampleLabSession private constructor(
     val room: Room,
     val roomId: String,
     val stack: ElementCallStack,
+    /** The members' own avatars for the call's style, loaded through [client]. */
+    val avatars: SampleLabAvatars,
     private val syncService: SyncService,
     private val scope: CoroutineScope,
 ) {
@@ -402,7 +404,7 @@ class SampleLabSession private constructor(
                 )
                 .build(scope)
             Timber.i("Lab: logged in as ${client.userId()}, room $roomId synced, call format ${Saved.load(context)?.format}")
-            return SampleLabSession(client, room, roomId, stack, syncService, scope)
+            return SampleLabSession(client, room, roomId, stack, SampleLabAvatars(client, scope), syncService, scope)
         }
     }
 }

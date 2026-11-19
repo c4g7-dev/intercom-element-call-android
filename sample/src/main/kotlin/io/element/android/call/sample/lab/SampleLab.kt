@@ -48,6 +48,11 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
     /** What the last lab action is doing, or why it failed. */
     val notice: StateFlow<String?> = noticeFlow
 
+    private val avatarsFlow = MutableStateFlow<SampleLabAvatars?>(null)
+
+    /** The session's avatars, which the call's style draws with; null with no session. */
+    val avatars: StateFlow<SampleLabAvatars?> = avatarsFlow
+
     private var session: SampleLabSession? = null
     private var job: Job? = null
 
@@ -89,6 +94,7 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
         job?.cancel()
         val current = session
         session = null
+        avatarsFlow.value = null
         accountFlow.value = null
         formatFlow.value = null
         noticeFlow.value = null
@@ -105,6 +111,7 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
             runCatchingExceptions { makeSession(session) }
                 .onSuccess {
                     session = it
+                    avatarsFlow.value = it.avatars
                     accountFlow.value = SampleLabSession.Saved.load(context)?.userId
                     formatFlow.value = SampleLabSession.Saved.load(context)?.format
                     noticeFlow.value = null
