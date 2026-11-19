@@ -26,7 +26,7 @@ fun SampleCallScreen(harness: SampleHarness, modifier: Modifier = Modifier, cont
     MaterialTheme(colorScheme = darkColorScheme()) {
         Box(modifier = modifier) {
             ElementCallStageDriverProvider(harness.driver) {
-                content(if (harness.isStyleOverridden) rememberLoudElementCallStyle() else null)
+                content(harness.rememberCallStyle())
             }
             harness.player?.let { ScenarioBar(player = it) }
         }

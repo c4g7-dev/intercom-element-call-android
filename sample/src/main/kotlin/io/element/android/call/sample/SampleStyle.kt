@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,5 +82,28 @@ private fun SquareAvatar(data: ElementCallAvatarData, size: androidx.compose.ui.
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
+    }
+}
+
+/**
+ * The style the call is drawn with: the loud one when the switch is on, else the default with the lab session's avatars
+ * once there is one, else null for the library's own default. Fixtures carry no avatar URL, so they still draw initials.
+ */
+@Composable
+fun SampleHarness.rememberCallStyle(): ElementCallStyle? {
+    val avatars by lab.avatars.collectAsState()
+    val icons = ElementCallIcons.default()
+    return when {
+        isStyleOverridden -> rememberLoudElementCallStyle()
+        else -> avatars?.let {
+            remember(it, icons) {
+                ElementCallStyle(
+                    colors = ElementCallColors.Dark,
+                    typography = ElementCallTypography.Default,
+                    icons = icons,
+                    avatar = { data, size -> it.Avatar(data, size) },
+                )
+            }
+        }
     }
 }
