@@ -110,6 +110,12 @@ fun CallTile(
         },
         label = "tileCorner",
     )
+    // The design puts a grid tile's avatar 28 dp from the top and 40 from the bottom of a 120 dp tile, clear of the name
+    // pill under it. Animated, like the corner, so a tile growing into the spotlight carries it back to the centre.
+    val avatarRaise by animateDpAsState(
+        targetValue = if (appearance == CallTileAppearance.Grid) GRID_AVATAR_RAISE else 0.dp,
+        label = "tileAvatarRaise",
+    )
     val shape = RoundedCornerShape(corner)
     val description = tile.accessibilityDescription(hasPicture = videoFrames != null, floatingCorner = floatingCorner)
     Box(
@@ -154,7 +160,7 @@ fun CallTile(
                 fit = fit,
             )
         } else {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize().offset(y = -avatarRaise), contentAlignment = Alignment.Center) {
                 // One to one, the picture fills the screen and has no edge for the speaking ring.
                 if (appearance == CallTileAppearance.FullBleed) SpeakingPulses(isSpeaking = tile.isActiveSpeaker, avatarSize = ElementCallAvatarSize.Spotlight)
                 // Falls back to an id-derived avatar when the member list has not loaded yet, rather
@@ -413,6 +419,9 @@ internal val ElementCallOwnTileCorner.moveLabel: Int
 const val SPOTLIGHT_CAMERA_FIT = 0.5f
 
 private val TILE_CORNER = 16.dp
+
+/** How far a grid tile's avatar sits above the tile's centre (the design's 28 dp over it and 40 under it on 120 dp). */
+private val GRID_AVATAR_RAISE = 6.dp
 
 /** Edge to edge, so square (contract B3); the grid keeps its margins and its corners. */
 private val SPOTLIGHT_CORNER = 0.dp
