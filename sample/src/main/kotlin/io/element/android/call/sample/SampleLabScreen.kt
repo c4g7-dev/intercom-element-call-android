@@ -31,13 +31,12 @@ import io.element.android.call.sample.lab.label
 fun SampleLabScreen(
     account: String?,
     format: MatrixRtcMembershipFormat?,
-    notice: String?,
     onScan: () -> Unit,
     onRejoin: () -> Unit,
     onLogOut: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val description = notice ?: account?.let { "Signed in as $it. A code for another account logs this one out first." }
+    val description = account?.let { "Signed in as $it. A code for another account logs this one out first." }
         ?: "Scan an account's code on the lab page to log in and join its call."
     val rows = if (account == null) listOf(LabRow.SCAN) else listOf(LabRow.FORMAT, LabRow.REJOIN, LabRow.SCAN, LabRow.LOG_OUT)
     Surface(modifier = modifier.fillMaxSize()) {

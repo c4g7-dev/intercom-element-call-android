@@ -43,10 +43,15 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
     @Suppress("UnusedPrivateProperty")
     private val savedListener = SampleLabSession.Saved.observe(context) { formatFlow.value = SampleLabSession.Saved.load(context)?.format }
 
-    private val noticeFlow = MutableStateFlow<String?>(null)
+    private val progressFlow = MutableStateFlow<String?>(null)
 
-    /** What the last lab action is doing, or why it failed. */
-    val notice: StateFlow<String?> = noticeFlow
+    /** What a login or rejoin is doing while it runs, which the home screen shows over everything; null when idle. */
+    val progress: StateFlow<String?> = progressFlow
+
+    private val errorFlow = MutableStateFlow<String?>(null)
+
+    /** Why the last lab action failed, until dismissed. */
+    val error: StateFlow<String?> = errorFlow
 
     private val avatarsFlow = MutableStateFlow<SampleLabAvatars?>(null)
 
@@ -56,7 +61,7 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
     private var session: SampleLabSession? = null
     private var job: Job? = null
 
-    fun open(join: SampleLabJoin) = start("Logging in as ${join.user}…") { current ->
+    fun open(join: SampleLabJoin) = start("Logging in as ${join.user} on ${join.homeserver}…") { current ->
         val sameAccount = SampleLabSession.Saved.load(context)?.isAccount(join.homeserver, join.user) == true
         if (current != null && sameAccount && current.serves(join)) {
             SampleLabSession.Saved.storeFormat(context, join.format)
@@ -79,15 +84,15 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
         GmsBarcodeScanning.getClient(activity, options).startScan()
             .addOnSuccessListener { barcode ->
                 val join = barcode.rawValue?.let(Uri::parse)?.let(SampleLabJoin::parse)
-                if (join != null) open(join) else noticeFlow.value = "Lab: that code is not a lab code"
+                if (join != null) open(join) else errorFlow.value = "That code is not a lab code."
             }
             .addOnFailureListener {
                 Timber.w(it, "Lab: the scanner failed")
-                noticeFlow.value = "Lab: the scanner failed: ${it.message}"
+                errorFlow.value = "The scanner failed: ${it.message}"
             }
     }
 
-    fun rejoin() = start("Rejoining as ${accountFlow.value}…") { current -> current ?: SampleLabSession.restoreSaved(context, scope) }
+    fun rejoin() = start("Rejoining as ${accountFlow.value ?: "the kept account"}…") { current -> current ?: SampleLabSession.restoreSaved(context, scope) }
 
     fun logOut() {
         controller.endLiveCall()
@@ -97,16 +102,32 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
         avatarsFlow.value = null
         accountFlow.value = null
         formatFlow.value = null
-        noticeFlow.value = null
+        progressFlow.value = null
+        errorFlow.value = null
         job = scope.launch {
             if (current != null) current.logOut(context) else SampleLabSession.logOutSaved(context)
         }
     }
 
-    private fun start(notice: String, makeSession: suspend (SampleLabSession?) -> SampleLabSession) {
+    /**
+     * Gives up on the login or rejoin in progress. A login against a laptop that has moved can otherwise hang on its
+     * timeouts, with nothing to do but wait.
+     */
+    fun cancel() {
+        job?.cancel()
+        job = null
+        progressFlow.value = null
+    }
+
+    fun dismissError() {
+        errorFlow.value = null
+    }
+
+    private fun start(progress: String, makeSession: suspend (SampleLabSession?) -> SampleLabSession) {
         controller.endLiveCall()
         job?.cancel()
-        noticeFlow.value = notice
+        errorFlow.value = null
+        progressFlow.value = progress
         job = scope.launch {
             runCatchingExceptions { makeSession(session) }
                 .onSuccess {
@@ -114,14 +135,15 @@ class SampleLab(private val context: Context, private val scope: CoroutineScope,
                     avatarsFlow.value = it.avatars
                     accountFlow.value = SampleLabSession.Saved.load(context)?.userId
                     formatFlow.value = SampleLabSession.Saved.load(context)?.format
-                    noticeFlow.value = null
+                    progressFlow.value = null
                     controller.startLab(SampleLabCall(it))
                 }
                 .onFailure {
                     Timber.w(it, "Lab: could not join")
                     accountFlow.value = SampleLabSession.Saved.load(context)?.userId
                     formatFlow.value = SampleLabSession.Saved.load(context)?.format
-                    noticeFlow.value = "Lab: ${it.message}"
+                    progressFlow.value = null
+                    errorFlow.value = (it.message ?: it.toString()).replaceFirstChar(Char::uppercaseChar)
                 }
         }
     }

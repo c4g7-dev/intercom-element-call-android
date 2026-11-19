@@ -43,7 +43,12 @@ class SampleLabTrust private constructor(val certificate: ByteArray) {
     companion object {
         /** Blocking: call on an IO dispatcher. */
         fun install(context: Context, certificateUrl: String): SampleLabTrust {
-            val connection = URL(certificateUrl).openConnection() as HttpURLConnection
+            // Short timeouts: the lab page is on the same laptop as the homeserver, so this is the first thing to find
+            // that the laptop has gone, and the default would leave the login hanging for minutes.
+            val connection = (URL(certificateUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 5_000
+                readTimeout = 5_000
+            }
             val certificate = connection.inputStream.use { it.readBytes() }
             val file = File(context.filesDir, "lab-ca.pem").apply { writeBytes(certificate) }
             Os.setenv("SSL_CERT_FILE", file.absolutePath, true)

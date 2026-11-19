@@ -70,7 +70,8 @@ fun SampleApp(
     val controller = harness.controller
     val fixtures = remember { SampleFixture.entries.toImmutableList() }
     val labAccount by harness.lab.account.collectAsState()
-    val labNotice by harness.lab.notice.collectAsState()
+    val labProgress by harness.lab.progress.collectAsState()
+    val labError by harness.lab.error.collectAsState()
     val labFormat by harness.lab.format.collectAsState()
     val context = LocalContext.current
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -124,7 +125,6 @@ fun SampleApp(
                         SampleTab.LAB -> SampleLabScreen(
                             account = labAccount,
                             format = labFormat,
-                            notice = labNotice,
                             onScan = { (context as? Activity)?.let(harness.lab::scan) },
                             onRejoin = harness.lab::rejoin,
                             onLogOut = harness.lab::logOut,
@@ -148,6 +148,8 @@ fun SampleApp(
                 }
             }
             harness.player?.let { ScenarioBar(player = it) }
+            labProgress?.let { SampleLabProgress(message = it, onCancel = harness.lab::cancel) }
+            labError?.let { SampleLabError(message = it, onDismiss = harness.lab::dismissError) }
         }
     }
 }

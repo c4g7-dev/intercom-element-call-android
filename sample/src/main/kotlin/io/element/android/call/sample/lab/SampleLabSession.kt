@@ -45,6 +45,7 @@ import org.matrix.rustcomponents.sdk.VerificationState
 import org.matrix.rustcomponents.sdk.initPlatform
 import timber.log.Timber
 import java.io.File
+import java.io.IOException
 
 /**
  * A logged-in Rust SDK session for the lab (feature-hq `harness/lab.md`): the sync running, the one room the call is in,
@@ -243,7 +244,14 @@ class SampleLabSession private constructor(
 
         private fun install(context: Context, homeserver: String): SampleLabTrust {
             val url = SampleLabJoin.certificateUrl(homeserver) ?: throw Failure("no lab CA for $homeserver")
-            return SampleLabTrust.install(context, url)
+            return try {
+                SampleLabTrust.install(context, url)
+            } catch (e: IOException) {
+                Timber.w(e, "Lab: the lab page at $url does not answer")
+                throw Failure(
+                    "$homeserver does not answer. If the laptop has changed network, its address has too: scan the account's code on the lab page again."
+                )
+            }
         }
 
         private suspend fun logOut(context: Context, trust: SampleLabTrust, saved: Saved) {
