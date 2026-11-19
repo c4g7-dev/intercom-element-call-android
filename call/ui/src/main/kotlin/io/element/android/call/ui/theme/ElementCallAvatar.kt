@@ -30,7 +30,7 @@ data class ElementCallAvatarData(
 /** The two sizes the call draws avatars at. */
 object ElementCallAvatarSize {
     /** In a strip tile or the floating tile. */
-    val Tile: Dp = 56.dp
+    val Tile: Dp = 52.dp
 
     /** In the spotlight, the full-bleed tile or picture-in-picture. */
     val Spotlight: Dp = 96.dp
