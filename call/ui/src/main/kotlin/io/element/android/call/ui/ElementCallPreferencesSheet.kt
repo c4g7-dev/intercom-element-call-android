@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.ui.preview.ElementCallPreview
 import io.element.android.call.ui.preview.PreviewsDayNight
 import io.element.android.call.ui.theme.ElementCallTheme
@@ -67,6 +68,19 @@ internal fun ElementCallPreferencesContent(state: ElementCallScreenState, modifi
                 enabled = state.showsReactions,
                 onCheckedChange = { state.eventSink(ElementCallScreenEvent.SetPlaysReactionSounds(it)) },
                 testTag = ElementCallTestTags.PREFERENCES_PLAY_REACTION_SOUNDS,
+            )
+        }
+        ElementCallSettingsSection(stringResource(R.string.element_call_preferences_layout)) {
+            ElementCallSettingsToggle(
+                title = stringResource(R.string.element_call_preferences_layout_equal_grid),
+                description = stringResource(R.string.element_call_preferences_layout_equal_grid_description),
+                checked = state.isEqualGrid,
+                onCheckedChange = { isEqual ->
+                    state.eventSink(
+                        ElementCallScreenEvent.SetStageLayout(if (isEqual) ElementCallStageLayout.EQUAL_GRID else ElementCallStageLayout.AUTOMATIC)
+                    )
+                },
+                testTag = ElementCallTestTags.PREFERENCES_EQUAL_GRID,
             )
         }
         ElementCallSettingsSection(stringResource(R.string.element_call_preferences_sound_effects)) {
@@ -133,5 +147,6 @@ open class PreferencesElementCallScreenStatePreviewParam : PreviewParameterProvi
             // Greyed, in both positions: the user's choice is kept (043 R7).
             anElementCallScreenState(showsReactions = false, playsReactionSounds = true),
             anElementCallScreenState(showsReactions = false, playsReactionSounds = false),
+            anElementCallScreenState(stageLayout = ElementCallStageLayout.EQUAL_GRID),
         )
 }

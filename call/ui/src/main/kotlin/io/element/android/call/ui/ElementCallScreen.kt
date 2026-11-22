@@ -188,7 +188,7 @@ fun ElementCallScreen(
             val fullscreen = state.fullscreenTile
             // One to one, the picture is the whole screen, so upright too the top bar goes with the
             // control bar; with any other count it stays (019 R30, 014 R30).
-            val isFullBleed = SmallCallLayout.isFullBleed(state.tiles)
+            val isFullBleed = !state.isEqualGrid && SmallCallLayout.isFullBleed(state.tiles)
             val isTopBarHideable = isLandscape || isFullBleed
             // Held sideways the status bar stays away, chrome or not: over the picture it has no
             // background of its own, and it tells nothing worth the strip it takes (014 R8, as proposed).
@@ -361,6 +361,7 @@ fun ElementCallScreen(
         when (state.settingsSheet) {
             ElementCallSettingsSheet.PREFERENCES -> ElementCallPreferencesSheet(state = state)
             ElementCallSettingsSheet.DEVELOPER_OPTIONS -> ElementCallDeveloperOptionsSheet(state = state)
+            ElementCallSettingsSheet.SCREEN_SHARE -> ElementCallScreenShareSheet(state = state)
             null -> Unit
         }
     }

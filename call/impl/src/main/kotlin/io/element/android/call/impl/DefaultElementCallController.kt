@@ -20,6 +20,7 @@ import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallRoomContextProvider
 import io.element.android.call.api.ElementCallSnapshot
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.analytics.ElementCallAnalytics
 import io.element.android.call.api.audio.AudioFocus
@@ -45,6 +46,7 @@ import io.element.android.call.api.rtc.MatrixRtcRing
 import io.element.android.call.api.rtc.MatrixRtcRingPhase
 import io.element.android.call.api.rtc.MatrixRtcRoom
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcSignallingHealth
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcTileId
@@ -588,6 +590,10 @@ internal class DefaultElementCallController(
 
     override fun setVideoCodec(codec: MatrixRtcVideoCodec) = storedPreferences.setVideoCodec(codec)
 
+    override fun setScreenShareOptions(options: MatrixRtcScreenShareOptions) = storedPreferences.setScreenShareOptions(options)
+
+    override fun setStageLayout(layout: ElementCallStageLayout) = storedPreferences.setStageLayout(layout)
+
     override val videoCodecs: List<MatrixRtcVideoCodec>
         get() = listOf(MatrixRtcVideoCodec.AUTO) + rtcClient.supportedVideoCodecs()
 
@@ -648,7 +654,7 @@ internal class DefaultElementCallController(
                     return@launch
                 }
                 platform.startForegroundService(isProjecting = true)
-                currentCall.setScreenShareEnabled(enabled = true, token = token)
+                currentCall.setScreenShareEnabled(enabled = true, token = token, options = preferences.value.screenShare)
             } else {
                 currentCall.setScreenShareEnabled(enabled = false)
                 // Back to microphone and camera only, so the system stops saying the screen is being

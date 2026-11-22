@@ -9,7 +9,9 @@ package io.element.android.call.impl
 
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +38,8 @@ internal class StoredElementCallPreferences(private val store: ElementCallPrefer
         soundEffectsVolume = store.soundEffectsVolume.coerceIn(0f, 1f),
         membershipFormat = store.membershipFormat,
         videoCodec = store.videoCodec,
+        screenShare = store.screenShare.normalized(),
+        stageLayout = store.stageLayout,
     )
 
     fun setShowsReactions(shows: Boolean) {
@@ -70,5 +74,18 @@ internal class StoredElementCallPreferences(private val store: ElementCallPrefer
         Timber.i("ElementCall: video codec $codec from the next join")
         store.videoCodec = codec
         _value.update { it.copy(videoCodec = codec) }
+    }
+
+    fun setScreenShareOptions(options: MatrixRtcScreenShareOptions) {
+        val normalized = options.normalized()
+        Timber.i("ElementCall: screen shares $normalized from the next share")
+        store.screenShare = normalized
+        _value.update { it.copy(screenShare = normalized) }
+    }
+
+    fun setStageLayout(layout: ElementCallStageLayout) {
+        Timber.i("ElementCall: stage layout $layout")
+        store.stageLayout = layout
+        _value.update { it.copy(stageLayout = layout) }
     }
 }

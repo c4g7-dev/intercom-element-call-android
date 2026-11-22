@@ -14,6 +14,7 @@ import io.element.android.call.api.ElementCallFailure
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallRoomMember
 import io.element.android.call.api.ElementCallSnapshot
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.rtc.MatrixRtcDetailWindow
@@ -21,6 +22,7 @@ import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcReaction
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcTileId
 import io.element.android.call.api.rtc.MatrixRtcTileRoster
@@ -161,6 +163,14 @@ class SampleElementCallController(
 
     override fun setVideoCodec(codec: MatrixRtcVideoCodec) {
         preferences.value = preferences.value.copy(videoCodec = codec)
+    }
+
+    override fun setScreenShareOptions(options: MatrixRtcScreenShareOptions) {
+        preferences.value = preferences.value.copy(screenShare = options)
+    }
+
+    override fun setStageLayout(layout: ElementCallStageLayout) {
+        preferences.value = preferences.value.copy(stageLayout = layout)
     }
 
     // A fixture has no core to ask: a plausible device's list.

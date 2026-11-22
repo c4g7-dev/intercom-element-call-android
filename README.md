@@ -1,3 +1,41 @@
+> [!IMPORTANT]
+> **This is the InterCom fork of element-call-android**, the native call component of
+> [InterCom for Android](https://github.com/c4g7-dev/InterCom#android). It is not an Element product and is not
+> affiliated with, endorsed by or supported by Element. Please report problems with this fork at
+> <https://github.com/c4g7-dev/InterCom/issues>, not upstream. Below the "InterCom changes" section is the upstream
+> README, kept for reference.
+
+## InterCom changes
+
+Branch `intercom`, based on the upstream tag `v0.1.2`; versions are `<upstream version>-intercom.<n>`. The artifacts
+are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.1`
+into `~/.m2`, where the InterCom fork of Element X Android resolves them.
+
+- **Phone audio in a screen share.** While the screen is shared, what the phone plays (media, games, untagged playback)
+  is captured with Android 10's playback capture on the same projection and published as a LiveKit
+  `ScreenShareAudio` stream: 48 kHz stereo PCM into the core, no echo canceller, noise suppressor or gain control.
+  It stops with the share. Apps that opt out of capture, and call audio, are silent by design; the app's own sounds
+  are left out. The matrix-rust-rtc core 0.5.0 publishes every audio track with LiveKit's default audio options
+  (Opus capped at 48 kbit/s, DTX on, stereo not signalled): a higher bitrate and negotiated stereo need a change in
+  the Rust core, which this fork does not rebuild.
+- **Sharper screen share.** The screen is sent at its own resolution up to 1440p on the long edge (1080p and 720p can
+  be chosen), at 30 or 15 frames a second, as one layer without simulcast, capped by picture size at up to 10 Mbit/s
+  (about 8 for 1080 by 2400). The core keeps the resolution and drops frames when the uplink runs short.
+- **A share sheet.** The share button opens a sheet with "Share phone audio" (on by default), the resolution and the
+  frame rate, kept for the next share, before the system's capture dialog.
+- **Equal grid.** A second stage layout, chosen in Preferences and kept: every tile the same size, shared screens
+  included and shown whole, as large as the stage allows for their number and its orientation; nothing is spotlit.
+  A double tap still fills the stage with a tile.
+
+API additions a host sees: `MatrixRtcScreenShareOptions`, `ElementCallStageLayout`,
+`ElementCallPreferences.screenShare` / `.stageLayout` (and the same two on `ElementCallPreferencesStore`),
+`ElementCallController.setScreenShareOptions` / `setStageLayout`, and an `options` parameter on
+`MatrixRtcMediaSession.setScreenShareEnabled`. A host that keeps the default preferences store has nothing to change.
+
+None of this has been run on a device: it compiles, and the unit tests and the quality checks pass.
+
+---
+
 # Element Call Android
 
 A native [MatrixRTC](https://github.com/matrix-org/matrix-spec-proposals/blob/main/proposals/4143-matrix-rtc.md)

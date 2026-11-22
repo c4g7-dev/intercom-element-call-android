@@ -8,6 +8,7 @@
 package io.element.android.call.impl.rtc
 
 import android.content.Context
+import android.os.Build
 import io.element.android.call.api.ElementCallDispatchers
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
 import io.element.android.call.api.rtc.MatrixRtcCallEvent
@@ -19,6 +20,7 @@ import io.element.android.call.api.rtc.MatrixRtcLocalState
 import io.element.android.call.api.rtc.MatrixRtcMediaSession
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcStreamRef
 import io.element.android.call.api.rtc.MatrixRtcTileId
@@ -32,6 +34,8 @@ import io.element.android.call.impl.rtc.media.AudioCapture
 import io.element.android.call.impl.rtc.media.AudioFormat
 import io.element.android.call.impl.rtc.media.AudioPlayback
 import io.element.android.call.impl.rtc.media.CameraVideoCapture
+import io.element.android.call.impl.rtc.media.ScreenAudioCapture
+import io.element.android.call.impl.rtc.media.ScreenAudioFormat
 import io.element.android.call.impl.rtc.media.ScreenVideoCapture
 import io.element.android.call.impl.rtc.media.VideoFormat
 import io.element.android.call.impl.util.runCatchingExceptions
@@ -62,6 +66,7 @@ import org.matrix.rtc.FfiPublishOptions
 import org.matrix.rtc.FfiStreamKind
 import org.matrix.rtc.FfiVideoCodecPreference
 import org.matrix.rtc.FfiVideoDetail
+import org.matrix.rtc.FfiVideoEncodingLimits
 import org.matrix.rtc.FfiVideoSourceConfig
 import org.matrix.rtc.MediaSession
 import timber.log.Timber
@@ -265,6 +270,10 @@ internal class RustMatrixRtcMediaSession(
      * A screen has no "off" for a publication to represent while idle - see [unpublishScreenShare].
      */
     private var screenTrack: FfiLocalTrack? = null
+
+    /** What the device plays, captured with the share and published beside it for as long as the share runs. */
+    private var screenAudioCapture: ScreenAudioCapture? = null
+    private var screenAudioTrack: FfiLocalTrack? = null
 
     // The meters run on the capture and playback reader threads, so both sides use update().
     private fun publishAudioLevel(memberId: String, level: MatrixRtcAudioLevel) {
@@ -710,7 +719,11 @@ internal class RustMatrixRtcMediaSession(
         }
     }
 
-    override suspend fun setScreenShareEnabled(enabled: Boolean, token: MatrixRtcScreenCaptureToken?): Result<Unit> =
+    override suspend fun setScreenShareEnabled(
+        enabled: Boolean,
+        token: MatrixRtcScreenCaptureToken?,
+        options: MatrixRtcScreenShareOptions,
+    ): Result<Unit> =
         runCatchingExceptions {
             if (isCapturingScreen == enabled) return@runCatchingExceptions
 
@@ -720,6 +733,10 @@ internal class RustMatrixRtcMediaSession(
                     Timber.w("MatrixRTC: cannot share the screen without the user's grant")
                     return@runCatchingExceptions
                 }
+                val format = options.normalized()
+                val size = screenCapture.captureSize(format.maxEdge)
+                val (width, height) = size
+                val bitrate = VideoFormat.screenBitrate(width, height, format.framesPerSecond)
                 // Always a fresh publication: stopping unpublishes, which kills the handle, so unlike
                 // the camera there is never a track left over to reuse. The elvis is a guard against
                 // an enable that failed after publishing, not a reuse path.
@@ -728,20 +745,23 @@ internal class RustMatrixRtcMediaSession(
                         FfiPublishOptions(
                             kind = FfiStreamKind.SCREEN_SHARE,
                             audio = null,
-                            video = FfiVideoSourceConfig(
-                                width = VideoFormat.SCREEN_MAX_EDGE.toUInt(),
-                                height = VideoFormat.SCREEN_MAX_EDGE.toUInt(),
-                            ),
-                            // For the same dynacast reason as the camera - see setCameraEnabled and
-                            // item 13 in `libraries/rustrtc/FEEDBACK.md`. Arguably wrong for a screen,
-                            // where one sharp layer beats three soft ones and text is the whole point,
-                            // but a single layer is the one dynacast pauses, and shipping something
-                            // that silently sends nothing is worse than shipping something soft.
-                            simulcast = true,
+                            // The size of the frames that will arrive, which is what the one layer is encoded at.
+                            video = FfiVideoSourceConfig(width = width.toUInt(), height = height.toUInt()),
+                            // One sharp layer rather than three soft ones: text is the whole point of a
+                            // share, and the layers below the top one are never worth their bitrate for it.
+                            // A single layer is one the SFU addresses as the lowest, so a viewer drawing
+                            // the share in a small tile still asks for it and dynacast leaves it running.
+                            // The core publishes a screen with the resolution kept and frames dropped
+                            // when the uplink runs short.
+                            simulcast = false,
                             // Unmuted by setScreenShareMuted below, once the projection has actually
                             // started - the reason that call is ordered after screenCapture.start.
                             muted = true,
                             videoCodec = videoCodec.toFfi(),
+                            videoEncoding = FfiVideoEncodingLimits(
+                                maxBitrateBps = bitrate.toULong(),
+                                maxFramerate = format.framesPerSecond.toUInt(),
+                            ),
                         )
                     )
                 }.also { screenTrack = it }
@@ -752,6 +772,8 @@ internal class RustMatrixRtcMediaSession(
                 val started = screenCapture.start(
                     track = track,
                     permissionData = resultData,
+                    size = size,
+                    framesPerSecond = format.framesPerSecond,
                     // The user can end the share from the cast notification, which no part of the
                     // capturer interface reports. Without this the button would go on saying "stop
                     // sharing" for a share that had already stopped.
@@ -764,6 +786,8 @@ internal class RustMatrixRtcMediaSession(
                     return@runCatchingExceptions
                 }
                 setScreenShareMuted(muted = false)
+                Timber.i("MatrixRTC: sharing the screen at ${width}x$height, ${format.framesPerSecond} fps, up to ${bitrate / 1000} kbit/s")
+                if (format.sharesDeviceAudio) startScreenShareAudio()
             } else {
                 // Capture first here, unlike the camera, which mutes the transport first so a peer is
                 // never shown a frozen picture. Unpublishing is not a state a peer can be shown - the
@@ -772,6 +796,8 @@ internal class RustMatrixRtcMediaSession(
                 // `stopCapture()` blocks until the capture thread is done.
                 // Latched first: stopping fires the projection's own onStop, which comes back here.
                 isCapturingScreen = false
+                // The audio first: it records from the projection the capturer is about to release.
+                stopScreenShareAudio()
                 screenCapture.stop()
                 unpublishScreenShare()
             }
@@ -796,6 +822,58 @@ internal class RustMatrixRtcMediaSession(
                 .onFailure { Timber.w(it, "MatrixRTC: could not unpublish the screen share") }
         }
         screenTrack = null
+    }
+
+    /**
+     * Publish what the device plays beside a share that has started, and start capturing it.
+     *
+     * Never a reason for the share to fail: on a device or in a state that cannot capture playback, the screen is
+     * shared without it and the log says why.
+     */
+    private suspend fun startScreenShareAudio() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            Timber.i("MatrixRTC: this Android version cannot capture playback, sharing the screen without audio")
+            return
+        }
+        // Made on first use, so the class is never loaded where the platform has no playback capture.
+        val capture = screenAudioCapture ?: ScreenAudioCapture(callScope).also { screenAudioCapture = it }
+        val projection = screenCapture.mediaProjection
+        if (projection == null) {
+            Timber.w("MatrixRTC: the screen capture holds no projection, sharing the screen without audio")
+            return
+        }
+        val track = withContext(ffiDispatcher) {
+            runCatchingExceptions {
+                mediaSession.publish(
+                    FfiPublishOptions(
+                        kind = FfiStreamKind.SCREEN_SHARE_AUDIO,
+                        audio = FfiAudioSourceConfig(
+                            sampleRate = ScreenAudioFormat.SAMPLE_RATE.toUInt(),
+                            numChannels = ScreenAudioFormat.CHANNEL_COUNT.toUInt(),
+                        ),
+                        video = null,
+                        simulcast = false,
+                        muted = false,
+                        videoCodec = FfiVideoCodecPreference.AUTO,
+                    )
+                )
+            }.onFailure { Timber.w(it, "MatrixRTC: could not publish the screen share's audio, sharing the screen without it") }.getOrNull()
+        } ?: return
+        screenAudioTrack = track
+        if (!capture.start(track, projection)) unpublishScreenShareAudio()
+    }
+
+    private suspend fun stopScreenShareAudio() {
+        screenAudioCapture?.stop()
+        if (screenAudioTrack != null) unpublishScreenShareAudio()
+    }
+
+    private suspend fun unpublishScreenShareAudio() {
+        withContext(ffiDispatcher) {
+            runCatchingExceptions { mediaSession.unpublish(FfiStreamKind.SCREEN_SHARE_AUDIO) }
+                .onFailure { Timber.w(it, "MatrixRTC: could not unpublish the screen share's audio") }
+        }
+        screenAudioTrack = null
     }
 
     /**
@@ -827,6 +905,7 @@ internal class RustMatrixRtcMediaSession(
     override suspend fun disconnect(): Result<Unit> = runCatchingExceptions {
         audioCapture.stop()
         videoCapture.stop()
+        screenAudioCapture?.stop()
         screenCapture.stop()
         audioPlayback.stopAll()
         withContext(ffiDispatcher) { mediaSession.disconnect() }
@@ -842,12 +921,14 @@ internal class RustMatrixRtcMediaSession(
         videoCapture.stop()
         // Same reasoning, and more visible: an abandoned MediaProjection leaves the system's screen
         // recording indicator up for a call that has ended.
+        screenAudioCapture?.stop()
         screenCapture.stop()
         audioPlayback.stopAll()
         callScope.cancel()
         microphoneTrack = null
         cameraTrack = null
         screenTrack = null
+        screenAudioTrack = null
     }
 
     private companion object {

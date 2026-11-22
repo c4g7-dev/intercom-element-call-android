@@ -12,6 +12,7 @@ import io.element.android.call.api.ElementCallConnection
 import io.element.android.call.api.ElementCallFailure
 import io.element.android.call.api.ElementCallHandRequestFailure
 import io.element.android.call.api.ElementCallInterruption
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.audio.CallAudioDeviceType
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
@@ -22,6 +23,7 @@ import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcParticipant
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcStreamRef
 import io.element.android.call.api.rtc.MatrixRtcStreamState
@@ -427,6 +429,8 @@ fun anElementCallScreenState(
     soundEffectsVolume: Float = 0.5f,
     membershipFormat: MatrixRtcMembershipFormat = MatrixRtcMembershipFormat.ROOM_STATE,
     videoCodec: MatrixRtcVideoCodec = MatrixRtcVideoCodec.AUTO,
+    screenShare: MatrixRtcScreenShareOptions = MatrixRtcScreenShareOptions.DEFAULT,
+    stageLayout: ElementCallStageLayout = ElementCallStageLayout.AUTOMATIC,
     videoCodecs: List<MatrixRtcVideoCodec> = listOf(MatrixRtcVideoCodec.AUTO, MatrixRtcVideoCodec.VP8, MatrixRtcVideoCodec.H264, MatrixRtcVideoCodec.VP9),
     joiningFormat: MatrixRtcMembershipFormat? = MatrixRtcMembershipFormat.ROOM_STATE,
     isDeveloperModeEnabled: Boolean = false,
@@ -496,6 +500,8 @@ fun anElementCallScreenState(
     soundEffectsVolume = soundEffectsVolume,
     membershipFormat = membershipFormat,
     videoCodec = videoCodec,
+    screenShare = screenShare,
+    stageLayout = stageLayout,
     videoCodecs = videoCodecs.toImmutableList(),
     joiningFormat = joiningFormat,
     isDeveloperModeEnabled = isDeveloperModeEnabled,

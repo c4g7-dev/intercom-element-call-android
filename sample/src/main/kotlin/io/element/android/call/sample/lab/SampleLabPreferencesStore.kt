@@ -11,7 +11,9 @@ import android.content.Context
 import androidx.core.content.edit
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 
 /**
@@ -42,4 +44,9 @@ class SampleLabPreferencesStore(context: Context) : ElementCallPreferencesStore 
         get() = prefs.getString("video_codec", null)?.let { name -> MatrixRtcVideoCodec.entries.firstOrNull { it.name == name } }
             ?: ElementCallPreferences.DEFAULT.videoCodec
         set(value) = prefs.edit { putString("video_codec", value.name) }
+
+    // Not kept: the lab starts every run from the defaults.
+    override var screenShare: MatrixRtcScreenShareOptions = ElementCallPreferences.DEFAULT.screenShare
+
+    override var stageLayout: ElementCallStageLayout = ElementCallPreferences.DEFAULT.stageLayout
 }

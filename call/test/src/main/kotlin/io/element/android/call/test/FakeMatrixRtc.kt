@@ -26,6 +26,7 @@ import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcRoom
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcSignallingHealth
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcStreamRef
@@ -392,8 +393,16 @@ class FakeMatrixRtcMediaSession(
     /** Every (enabled, had a token) pair [setScreenShareEnabled] was called with, in order. */
     val screenShareCalls = mutableListOf<Pair<Boolean, Boolean>>()
 
-    override suspend fun setScreenShareEnabled(enabled: Boolean, token: MatrixRtcScreenCaptureToken?): Result<Unit> {
+    /** The options each start was given, in order. */
+    val screenShareOptions = mutableListOf<MatrixRtcScreenShareOptions>()
+
+    override suspend fun setScreenShareEnabled(
+        enabled: Boolean,
+        token: MatrixRtcScreenCaptureToken?,
+        options: MatrixRtcScreenShareOptions,
+    ): Result<Unit> {
         screenShareCalls += enabled to (token != null)
+        if (enabled) screenShareOptions += options
         // Mirrors the real one, which refuses to start without the user's grant rather than throwing.
         if (enabled && token == null) return Result.success(Unit)
         _isScreenSharing.value = enabled

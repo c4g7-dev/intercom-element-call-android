@@ -58,6 +58,9 @@ internal fun interface CallStageArrangement {
 
         /** Spec 019: at most five tiles, nothing scrolling, ours floating with one or two. */
         val SmallCall: CallStageArrangement = CallStageArrangement(SmallCallLayout::compute)
+
+        /** Every tile the same size, filling the stage, shares shown whole; nothing spotlit. */
+        val EqualGrid: CallStageArrangement = CallStageArrangement(EqualGridLayout::compute)
     }
 }
 
@@ -89,6 +92,8 @@ internal data class CallStageLayout(
     val fullBleedTileId: String? = null,
     /** Nothing scrolls (019 R30): the stage's scroll is off. */
     val isStatic: Boolean = false,
+    /** A share in the grid is shown whole, with bars, rather than cropped to its tile. */
+    val fitsShares: Boolean = false,
 ) {
     data class Input(
         /**

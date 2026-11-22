@@ -49,6 +49,16 @@ object ElementCallTestTags {
     /** One video codec's row, Auto included (043 R15). */
     fun developerOptionsVideoCodec(codec: MatrixRtcVideoCodec): String = "element_call_developer_options_video_codec_${codec.name.lowercase()}"
 
+    const val SCREEN_SHARE_SHEET = "element_call_screen_share_sheet"
+    const val SCREEN_SHARE_AUDIO = "element_call_screen_share_audio"
+    const val SCREEN_SHARE_START = "element_call_screen_share_start"
+
+    fun screenShareMaxEdge(maxEdge: Int): String = "element_call_screen_share_max_edge_$maxEdge"
+
+    fun screenShareFrameRate(framesPerSecond: Int): String = "element_call_screen_share_frame_rate_$framesPerSecond"
+
+    const val PREFERENCES_EQUAL_GRID = "element_call_preferences_equal_grid"
+
     /** A failed MSC join's way back (043 R18a). */
     const val FAILURE_USE_ROOM_STATE = "element_call_failure_use_room_state"
 

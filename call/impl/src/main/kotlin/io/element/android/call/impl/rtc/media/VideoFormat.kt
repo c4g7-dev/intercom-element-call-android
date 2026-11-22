@@ -10,18 +10,20 @@ package io.element.android.call.impl.rtc.media
 /** What we ask the screen capture for. The camera's format is [CameraCaptureFormat]'s. */
 internal object VideoFormat {
     /**
-     * The longest edge of a screen share, which is scaled to fit inside it.
+     * The bitrate a screen share may use at most, for a picture of [width] by [height] at [framesPerSecond].
      *
-     * Well below a phone's real 1080x2400. Text has to stay readable, so this cannot go as low as
-     * the camera, but every pixel is repacked in Kotlin on the way out (`FEEDBACK.md` item 14) and
-     * native resolution would be five times the camera's load.
+     * One layer carries the whole share, so this is the cap on everything it sends: about 8 Mbit/s for a phone's
+     * own 1080 by 2400 and 10 at 1440p, where text stays sharp while scrolling. The encoder uses less on a still screen.
      */
-    const val SCREEN_MAX_EDGE = 1280
+    fun screenBitrate(width: Int, height: Int, framesPerSecond: Int): Long {
+        val atFullRate = (width.toLong() * height * SCREEN_BITS_PER_PIXEL_TENTHS / 10).coerceIn(SCREEN_MIN_BITRATE, SCREEN_MAX_BITRATE)
+        return if (framesPerSecond >= SCREEN_FULL_FPS) atFullRate else atFullRate * SCREEN_LOW_FPS_SHARE_PERCENT / 100
+    }
 
-    /**
-     * Half the camera's rate. A screen is mostly still, and the frames that matter - a scroll, a
-     * slide change - are still caught at 15, while the cost of a screen frame is several times that
-     * of a camera frame.
-     */
-    const val SCREEN_FPS = 15
+    /** Where everything is counted in frames, at the higher of the two rates a share can run at. */
+    const val SCREEN_FULL_FPS = 30
+    private const val SCREEN_BITS_PER_PIXEL_TENTHS = 32L
+    private const val SCREEN_MIN_BITRATE = 2_500_000L
+    private const val SCREEN_MAX_BITRATE = 10_000_000L
+    private const val SCREEN_LOW_FPS_SHARE_PERCENT = 65L
 }

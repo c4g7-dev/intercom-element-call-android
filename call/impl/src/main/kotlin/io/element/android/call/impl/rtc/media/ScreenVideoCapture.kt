@@ -60,11 +60,13 @@ internal class ScreenVideoCapture(private val context: Context) {
      * @param track the published screen-share track the captured frames go to.
      * @param permissionData the `Intent` an Activity got back from
      * `MediaProjectionManager.createScreenCaptureIntent()`.
+     * @param size the size of the virtual display, from [captureSize].
+     * @param framesPerSecond the capture rate.
      * @param onStopped called if the projection ends without us asking - the user stopping it from
      * the system UI, or the platform revoking it. Called on a binder thread.
      * @return whether capture started. False means nothing was claimed and nothing needs stopping.
      */
-    fun start(track: FfiLocalTrack, permissionData: Intent, onStopped: () -> Unit): Boolean {
+    fun start(track: FfiLocalTrack, permissionData: Intent, size: Pair<Int, Int>, framesPerSecond: Int, onStopped: () -> Unit): Boolean {
         if (capturer != null) return true
 
         val egl = EglBase.create()
@@ -84,14 +86,14 @@ internal class ScreenVideoCapture(private val context: Context) {
             }
         }
         val screenCapturer = ScreenCapturerAndroid(permissionData, projectionCallback)
-        val (width, height) = captureSize()
+        val (width, height) = size
 
         // Claiming the projection happens inside initialize(), so this is where a missing
         // mediaProjection foreground service surfaces - as a SecurityException on Android 14+,
         // which would otherwise take the process down.
         val started = runCatchingExceptions {
             screenCapturer.initialize(helper, context, capturerObserver)
-            screenCapturer.startCapture(width, height, VideoFormat.SCREEN_FPS)
+            screenCapturer.startCapture(width, height, framesPerSecond)
         }.onFailure {
             Timber.w(it, "MatrixRTC: could not start screen capture")
         }.isSuccess
@@ -108,9 +110,15 @@ internal class ScreenVideoCapture(private val context: Context) {
         surfaceTextureHelper = helper
         capturer = screenCapturer
         publisher.reset()
-        Timber.i("MatrixRTC: capturing the screen at ${width}x$height@${VideoFormat.SCREEN_FPS}")
+        Timber.i("MatrixRTC: capturing the screen at ${width}x$height@$framesPerSecond")
         return true
     }
+
+    /**
+     * The projection behind a running capture, which playback capture is opened on: the grant is spent once the
+     * capturer has claimed it, so there is no second one to ask for. Null when nothing is captured.
+     */
+    val mediaProjection: MediaProjection? get() = capturer?.mediaProjection
 
     /**
      * Release the projection. Safe to call when nothing is running, and safe to call twice.
@@ -152,23 +160,16 @@ internal class ScreenVideoCapture(private val context: Context) {
     }
 
     /**
-     * The size of the virtual display, which decides what everyone else sees.
-     *
-     * Scaled down from the real screen rather than captured at native resolution: a modern phone is
-     * around 1080x2400, and `FEEDBACK.md` item 14 records that our per-frame repacking already
-     * dominates CPU at VGA. Capturing five times the pixels of a camera frame would make the phone
-     * the bottleneck long before the network was.
+     * The size of the virtual display, which decides what everyone else sees: the screen's own size, scaled down
+     * to fit [maxEdge] on its longest edge when it is larger.
      *
      * The aspect ratio is kept, because a stretched screen share is worse than a small one, and both
      * dimensions are forced even - I420 has half-resolution chroma planes, so an odd dimension has no
      * exact representation.
      */
-    private fun captureSize(): Pair<Int, Int> {
+    fun captureSize(maxEdge: Int): Pair<Int, Int> {
         val (screenWidth, screenHeight) = screenSize()
-        val longest = maxOf(screenWidth, screenHeight)
-        if (longest <= 0) return VideoFormat.SCREEN_MAX_EDGE to VideoFormat.SCREEN_MAX_EDGE
-        val scale = minOf(1f, VideoFormat.SCREEN_MAX_EDGE.toFloat() / longest)
-        return makeEven((screenWidth * scale).toInt()) to makeEven((screenHeight * scale).toInt())
+        return scaledToFit(screenWidth, screenHeight, maxEdge)
     }
 
     private fun screenSize(): Pair<Int, Int> {
@@ -184,10 +185,18 @@ internal class ScreenVideoCapture(private val context: Context) {
         }
     }
 
-    private fun makeEven(value: Int) = value / 2 * 2
+    companion object {
+        /** Five seconds at the full frame rate. */
+        private const val FRAMES_PER_LOG = VideoFormat.SCREEN_FULL_FPS * 5L
 
-    private companion object {
-        /** Five seconds at the requested frame rate. */
-        const val FRAMES_PER_LOG = VideoFormat.SCREEN_FPS * 5L
+        /** [width] by [height] scaled down to fit [maxEdge], never up, with even dimensions. A screen of no size is a square of [maxEdge]. */
+        fun scaledToFit(width: Int, height: Int, maxEdge: Int): Pair<Int, Int> {
+            val longest = maxOf(width, height)
+            if (longest <= 0 || minOf(width, height) <= 0) return makeEven(maxEdge) to makeEven(maxEdge)
+            val scale = minOf(1f, maxEdge.toFloat() / longest)
+            return makeEven((width * scale).toInt()) to makeEven((height * scale).toInt())
+        }
+
+        private fun makeEven(value: Int) = value / 2 * 2
     }
 }

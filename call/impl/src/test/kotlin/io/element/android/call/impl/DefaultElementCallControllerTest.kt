@@ -19,6 +19,7 @@ import io.element.android.call.api.ElementCallInterruption
 import io.element.android.call.api.ElementCallOptions
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallRoomContext
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.analytics.NoOpElementCallAnalytics
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
@@ -43,6 +44,7 @@ import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcRing
 import io.element.android.call.api.rtc.MatrixRtcRingPhase
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcSignallingHealth
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcStreamRef
@@ -1796,6 +1798,8 @@ class DefaultElementCallControllerTest {
         runCurrent()
 
         assertThat(platform.startForegroundServiceProjecting).containsExactly(true)
+        // The share is started as the user's preferences say, the defaults here.
+        assertThat(call.screenShareOptions).containsExactly(MatrixRtcScreenShareOptions.DEFAULT)
         // The projection had not been claimed yet when the service took the type. This is the
         // assertion that fails if the two lines are ever swapped.
         assertThat(shareCallsWhenProjectingClaimed).isEqualTo(0)
@@ -2265,6 +2269,8 @@ class DefaultElementCallControllerTest {
                 soundEffectsVolume = 0.2f,
                 membershipFormat = MatrixRtcMembershipFormat.MSC,
                 videoCodec = MatrixRtcVideoCodec.VP9,
+                screenShare = MatrixRtcScreenShareOptions.DEFAULT,
+                stageLayout = ElementCallStageLayout.AUTOMATIC,
             )
         )
         assertThat(platform.soundEffectRenderers.single().volume).isEqualTo(0.2f)
@@ -2274,6 +2280,12 @@ class DefaultElementCallControllerTest {
         controller.setSoundEffectsVolume(1.5f)
         controller.setMembershipFormat(MatrixRtcMembershipFormat.ROOM_STATE)
         controller.setVideoCodec(MatrixRtcVideoCodec.H264)
+        // Held to what the capture offers: 2000 is nearest 1920, 20 is nearest 15.
+        controller.setScreenShareOptions(MatrixRtcScreenShareOptions(maxEdge = 2000, framesPerSecond = 20, sharesDeviceAudio = false))
+        controller.setStageLayout(ElementCallStageLayout.EQUAL_GRID)
+        val kept = MatrixRtcScreenShareOptions(maxEdge = 1920, framesPerSecond = 15, sharesDeviceAudio = false)
+        assertThat(store.screenShare).isEqualTo(kept)
+        assertThat(store.stageLayout).isEqualTo(ElementCallStageLayout.EQUAL_GRID)
 
         assertThat(store.showsReactions).isFalse()
         assertThat(store.playsReactionSounds).isTrue()
@@ -2287,6 +2299,8 @@ class DefaultElementCallControllerTest {
                 soundEffectsVolume = 1f,
                 membershipFormat = MatrixRtcMembershipFormat.ROOM_STATE,
                 videoCodec = MatrixRtcVideoCodec.H264,
+                screenShare = kept,
+                stageLayout = ElementCallStageLayout.EQUAL_GRID,
             )
         )
         // Applied to the running call's sounds at once, those playing included (037 R22).

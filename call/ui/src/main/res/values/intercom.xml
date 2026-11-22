@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  ~ Copyright (c) 2026 Element Creations Ltd.
+  ~
+  ~ SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial.
+  ~ Please see LICENSE files in the repository root for full details.
+  -->
+<resources>
+    <!-- Strings of the InterCom fork, English only: they are not in the element-call Localazy project. -->
+    <string name="element_call_screen_share_options_title">Share screen</string>
+    <string name="element_call_screen_share_options_audio">Share phone audio</string>
+    <string name="element_call_screen_share_options_audio_description">Others hear what this phone plays: music, videos and games. Apps that do not allow recording, and calls, stay silent.</string>
+    <string name="element_call_screen_share_options_audio_unsupported">Needs Android 10 or newer.</string>
+    <string name="element_call_screen_share_options_resolution">Resolution</string>
+    <string name="element_call_screen_share_options_resolution_value">Up to %1$dp</string>
+    <string name="element_call_screen_share_options_resolution_description">The screen is sent at its own resolution up to this size. Higher is sharper and uses more battery and data.</string>
+    <string name="element_call_screen_share_options_frame_rate">Frame rate</string>
+    <string name="element_call_screen_share_options_frame_rate_value">%1$d fps</string>
+    <string name="element_call_screen_share_options_frame_rate_description">30 is smoother for video and games, 15 is enough for documents.</string>
+    <string name="element_call_screen_share_options_start">Start sharing</string>
+    <string name="element_call_preferences_layout">Layout</string>
+    <string name="element_call_preferences_layout_equal_grid">Equal grid</string>
+    <string name="element_call_preferences_layout_equal_grid_description">Every tile the same size, shared screens included and shown whole. Nobody is put in the spotlight.</string>
+</resources>

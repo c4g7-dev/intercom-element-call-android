@@ -16,11 +16,13 @@ import io.element.android.call.api.ElementCallData
 import io.element.android.call.api.ElementCallFailure
 import io.element.android.call.api.ElementCallRoomMember
 import io.element.android.call.api.ElementCallSnapshot
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.ElementCallVersion
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcParticipant
 import io.element.android.call.api.rtc.MatrixRtcReaction
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcStreamRef
 import io.element.android.call.api.rtc.MatrixRtcTile
@@ -228,10 +230,10 @@ class ElementCallScreenStateTest {
 
     /**
      * Unlike the camera there is nothing to check before sharing: the grant is spent when it is used,
-     * so every share starts at the system dialog. Stopping needs no dialog and goes straight through.
+     * so every share goes through its sheet to the system dialog. Stopping needs neither and goes straight through.
      */
     @Test
-    fun `sharing the screen starts at the system dialog and stopping does not`() = runTest {
+    fun `sharing the screen starts at its sheet, then the system dialog, and stopping does not`() = runTest {
         val controller = FakeElementCallController(initialState = aConnectedSnapshot().copy(isScreenShareAvailable = true))
         var requestCount = 0
 
@@ -239,6 +241,15 @@ class ElementCallScreenStateTest {
             rememberElementCallScreenState(controller, aNavigator(onRequestScreenCapture = { requestCount++ }))
         }.test {
             awaitItem().eventSink(ElementCallScreenEvent.ToggleScreenShare)
+            assertThat(requestCount).isEqualTo(0)
+            val sheet = consumeItemsUntilPredicate { it.settingsSheet == ElementCallSettingsSheet.SCREEN_SHARE }.last()
+            assertThat(sheet.screenShare).isEqualTo(MatrixRtcScreenShareOptions.DEFAULT)
+            val quieter = MatrixRtcScreenShareOptions(maxEdge = 1920, framesPerSecond = 15, sharesDeviceAudio = false)
+            sheet.eventSink(ElementCallScreenEvent.SetScreenShareOptions(quieter))
+            val changed = consumeItemsUntilPredicate { it.screenShare == quieter }.last()
+            assertThat(controller.preferences.value.screenShare).isEqualTo(quieter)
+            changed.eventSink(ElementCallScreenEvent.StartScreenShare)
+            consumeItemsUntilPredicate { it.settingsSheet == null }
             assertThat(requestCount).isEqualTo(1)
             assertThat(controller.screenShareTokens).isEmpty()
 
@@ -460,6 +471,32 @@ class ElementCallScreenStateTest {
      * A shared screen is a hero and takes the spotlight; the person sharing it stays in the grid
      * like anyone else (spec 003 R9, R17, R18).
      */
+    @Test
+    fun `the equal grid spotlights nothing and places a shared screen as a tile like any other`() = runTest {
+        val controller = FakeElementCallController(
+            initialState = aConnectedSnapshot(
+                participants = listOf(
+                    aSharingParticipant(A_REMOTE_MEMBER_ID),
+                    aCameraParticipant(ANOTHER_REMOTE_MEMBER_ID, isLocal = false, isCameraMuted = false),
+                ),
+            ),
+        )
+
+        moleculeFlow(RecompositionMode.Immediate) { rememberElementCallScreenState(controller, aNavigator()) }.test {
+            val ranked = awaitItem()
+            assertThat(ranked.isEqualGrid).isFalse()
+            ranked.eventSink(ElementCallScreenEvent.SetStageLayout(ElementCallStageLayout.EQUAL_GRID))
+
+            val equal = consumeItemsUntilPredicate { it.isEqualGrid }.last()
+            assertThat(equal.spotlightTile).isNull()
+            assertThat(equal.heroes).isEmpty()
+            assertThat(equal.gridTiles.map { it.tileId })
+                .containsExactly("$A_REMOTE_MEMBER_ID#SCREEN_SHARE", A_REMOTE_MEMBER_ID, ANOTHER_REMOTE_MEMBER_ID)
+            assertThat(controller.preferences.value.stageLayout).isEqualTo(ElementCallStageLayout.EQUAL_GRID)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     @Test
     fun `a shared screen takes the spotlight and its owner stays in the grid`() = runTest {
         val controller = FakeElementCallController(

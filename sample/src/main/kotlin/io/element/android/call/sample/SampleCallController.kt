@@ -12,6 +12,7 @@ import io.element.android.call.api.ElementCallController
 import io.element.android.call.api.ElementCallData
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallSnapshot
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.rtc.MatrixRtcDetailWindow
@@ -19,6 +20,7 @@ import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcReaction
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcTileId
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
@@ -142,6 +144,8 @@ class SampleCallController(private val context: Context, private val scope: Coro
     override fun setPlaysReactionSounds(plays: Boolean) = target.setPlaysReactionSounds(plays)
     override fun setMembershipFormat(format: MatrixRtcMembershipFormat) = target.setMembershipFormat(format)
     override fun setVideoCodec(codec: MatrixRtcVideoCodec) = target.setVideoCodec(codec)
+    override fun setScreenShareOptions(options: MatrixRtcScreenShareOptions) = target.setScreenShareOptions(options)
+    override fun setStageLayout(layout: ElementCallStageLayout) = target.setStageLayout(layout)
     override val videoCodecs: List<MatrixRtcVideoCodec> get() = target.videoCodecs
     override fun setSoundEffectsVolume(volume: Float) = target.setSoundEffectsVolume(volume)
     override fun playSoundEffectsVolumeSample() = target.playSoundEffectsVolumeSample()

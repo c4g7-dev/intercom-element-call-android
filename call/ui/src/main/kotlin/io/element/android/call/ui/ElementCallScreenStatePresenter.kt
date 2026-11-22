@@ -22,6 +22,7 @@ import io.element.android.call.api.ElementCallController
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallRoomMember
 import io.element.android.call.api.ElementCallSnapshot
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.ElementCallVersion
 import io.element.android.call.api.rtc.MatrixRtcConnectionState
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
@@ -200,6 +201,14 @@ fun rememberElementCallScreenState(
             is ElementCallScreenEvent.SetPlaysReactionSounds -> controller.setPlaysReactionSounds(event.plays)
             is ElementCallScreenEvent.SetMembershipFormat -> controller.setMembershipFormat(event.format)
             is ElementCallScreenEvent.SetVideoCodec -> controller.setVideoCodec(event.codec)
+            is ElementCallScreenEvent.SetScreenShareOptions -> controller.setScreenShareOptions(event.options)
+            is ElementCallScreenEvent.SetStageLayout -> controller.setStageLayout(event.layout)
+            ElementCallScreenEvent.StartScreenShare -> {
+                settingsSheet = null
+                // Always asks. Unlike the camera there is nothing to check first: the grant
+                // is spent when it is used, so every share starts at the system dialog.
+                navigator.requestScreenCapture()
+            }
             // Saved before the close, which is the failure screen's Close (043 R18a).
             ElementCallScreenEvent.UseRoomStateAndClose -> {
                 controller.setMembershipFormat(MatrixRtcMembershipFormat.ROOM_STATE)
@@ -272,9 +281,7 @@ fun rememberElementCallScreenState(
                 if (current?.isScreenSharing == true) {
                     controller.setScreenShareEnabled(token = null)
                 } else {
-                    // Always asks. Unlike the camera there is nothing to check first: the grant
-                    // is spent when it is used, so every share starts at the system dialog.
-                    navigator.requestScreenCapture()
+                    settingsSheet = ElementCallSettingsSheet.SCREEN_SHARE
                 }
             }
             ElementCallScreenEvent.ToggleMicrophoneMuted -> controller.setMicrophoneMuted(current?.isMicrophoneMuted != true)
@@ -308,10 +315,13 @@ fun rememberElementCallScreenState(
         ?.takeIf { !it.isLocal }
         ?.let { candidate -> tiles.firstOrNull { it.id == candidate.id }?.tileId }
 
+    // The equal grid spotlights nobody: every hero is an ordinary tile of it. The choice above still runs, for
+    // Picture in Picture and the minimised tile to follow.
+    val isEqualGrid = preferences.stageLayout == ElementCallStageLayout.EQUAL_GRID
     return current.toState(
         videoFrames = videoFrames,
-        tiles = tiles,
-        spotlight = spotlight,
+        tiles = if (isEqualGrid) tiles.map { if (it.isHero) it.copy(isHero = false) else it }.toImmutableList() else tiles,
+        spotlight = if (isEqualGrid) CallSpotlight.Choice.None else spotlight,
         fullscreenTileId = fullscreenTileId,
         isFullscreenChromeVisible = isFullscreenChromeVisible,
         isStageChromeVisible = tiles.isEmpty() || isRinging || stageChrome.isVisible,
@@ -477,6 +487,8 @@ private fun ElementCallSnapshot?.toState(
     soundEffectsVolume = preferences.soundEffectsVolume,
     membershipFormat = preferences.membershipFormat,
     videoCodec = preferences.videoCodec,
+    screenShare = preferences.screenShare,
+    stageLayout = preferences.stageLayout,
     videoCodecs = videoCodecs,
     joiningFormat = this?.joiningFormat,
     isDeveloperModeEnabled = isDeveloperModeEnabled,

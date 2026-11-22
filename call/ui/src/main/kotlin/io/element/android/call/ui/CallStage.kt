@@ -126,8 +126,13 @@ internal fun CallStage(
     /** Null to choose by the call: the small-call layout up to five tiles, the ranked grid beyond (019 R1, R8). */
     arrangement: CallStageArrangement? = null,
 ) {
-    val chosen = arrangement ?: if (SmallCallLayout.applies(state.tiles)) CallStageArrangement.SmallCall else CallStageArrangement.RankedGrid
-    // Nothing scrolls in a small call (019 R30), and a drag on the stage is then nobody's.
+    val chosen = arrangement ?: when {
+        state.isEqualGrid -> CallStageArrangement.EqualGrid
+        SmallCallLayout.applies(state.tiles) -> CallStageArrangement.SmallCall
+        else -> CallStageArrangement.RankedGrid
+    }
+    // Nothing scrolls in a small call (019 R30), and a drag on the stage is then nobody's. The equal grid
+    // scrolls only past the count it fits, which its content height says.
     val isStatic = chosen == CallStageArrangement.SmallCall
     val scrollOffset = remember { mutableFloatStateOf(0f) }
     val currentLayout = remember { LayoutRef() }
@@ -356,7 +361,7 @@ internal fun CallStage(
             lastSlots[tileId] = when (tileId) {
                 layout.fullBleedTileId -> TileSlot(rect, isSticky = true, CallTileAppearance.FullBleed)
                 layout.floating?.tileId -> TileSlot(rect, isSticky = true, CallTileAppearance.Floating)
-                else -> TileSlot(rect, isSticky = false, CallTileAppearance.Grid)
+                else -> TileSlot(rect, isSticky = false, CallTileAppearance.Grid, fitsShare = layout.fitsShares)
             }
         }
         val spotlightRect = layout.spotlight
@@ -743,6 +748,8 @@ private fun PlacedTile(
     var videoSize by remember { mutableStateOf<IntSize?>(null) }
     val targetFit = if (appearance == CallTileAppearance.FullBleed) {
         if (!isLandscapeStage && videoSize?.aspect() ?: 0f > 1f) 1f else 0f
+    } else if (slot.fitsShare && tile.isScreenShare && appearance == CallTileAppearance.Grid) {
+        1f
     } else {
         appearance.fitFor(tile)
     }
@@ -946,7 +953,7 @@ internal fun Modifier.animatedSlot(
 internal data class FloatingInsets(val left: Dp, val top: Dp, val right: Dp, val bottom: Dp)
 
 /** A tile's rectangle, and whether it is sticky (viewport coordinates) or scrolls (content coordinates). */
-private data class TileSlot(val rect: Rect, val isSticky: Boolean, val appearance: CallTileAppearance) {
+private data class TileSlot(val rect: Rect, val isSticky: Boolean, val appearance: CallTileAppearance, val fitsShare: Boolean = false) {
     val isFullscreen: Boolean get() = appearance == CallTileAppearance.Fullscreen
 }
 

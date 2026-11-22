@@ -13,6 +13,7 @@ import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcReaction
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcTileId
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
@@ -119,6 +120,12 @@ interface ElementCallController {
 
     /** The codec the next join publishes video with (043 R16a). One of [videoCodecs]. */
     fun setVideoCodec(codec: MatrixRtcVideoCodec)
+
+    /** How the next screen share is captured; a share in progress keeps its own. */
+    fun setScreenShareOptions(options: MatrixRtcScreenShareOptions)
+
+    /** How the stage arranges its tiles, at once. */
+    fun setStageLayout(layout: ElementCallStageLayout)
 
     /**
      * What the Developer options sheet offers: [MatrixRtcVideoCodec.AUTO], then each codec this device can encode, in the core's

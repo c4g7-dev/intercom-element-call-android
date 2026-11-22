@@ -36,6 +36,9 @@ enum class ElementCallSettingsSheet {
 
     /** Only in developer mode (043 R4). */
     DEVELOPER_OPTIONS,
+
+    /** What a screen share is asked before it starts; opened by the share button, not from the menu. */
+    SCREEN_SHARE,
 }
 
 /**

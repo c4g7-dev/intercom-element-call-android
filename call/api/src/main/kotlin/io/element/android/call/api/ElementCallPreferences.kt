@@ -8,6 +8,7 @@
 package io.element.android.call.api
 
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 
 /** The user's in-call preferences, as they stand. */
@@ -22,6 +23,10 @@ data class ElementCallPreferences(
     val membershipFormat: MatrixRtcMembershipFormat,
     /** The codec the next join publishes video with (043 R15, R16a). */
     val videoCodec: MatrixRtcVideoCodec,
+    /** How the next screen share is captured: its size, its frame rate and whether the device's audio goes with it. */
+    val screenShare: MatrixRtcScreenShareOptions,
+    /** How the stage arranges its tiles. Applied at once. */
+    val stageLayout: ElementCallStageLayout,
 ) {
     companion object {
         /**
@@ -34,8 +39,19 @@ data class ElementCallPreferences(
             soundEffectsVolume = 0.5f,
             membershipFormat = MatrixRtcMembershipFormat.ROOM_STATE,
             videoCodec = MatrixRtcVideoCodec.AUTO,
+            screenShare = MatrixRtcScreenShareOptions.DEFAULT,
+            stageLayout = ElementCallStageLayout.AUTOMATIC,
         )
     }
+}
+
+/** How the stage arranges its tiles. */
+enum class ElementCallStageLayout {
+    /** The spotlight over a ranked grid, and the small-call layout up to five tiles. */
+    AUTOMATIC,
+
+    /** Every tile the same size, shares included and shown whole, filling the stage. Nothing is spotlit. */
+    EQUAL_GRID,
 }
 
 /**
@@ -56,4 +72,8 @@ interface ElementCallPreferencesStore {
     var membershipFormat: MatrixRtcMembershipFormat
 
     var videoCodec: MatrixRtcVideoCodec
+
+    var screenShare: MatrixRtcScreenShareOptions
+
+    var stageLayout: ElementCallStageLayout
 }

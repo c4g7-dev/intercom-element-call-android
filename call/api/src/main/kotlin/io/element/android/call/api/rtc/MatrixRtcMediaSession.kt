@@ -221,8 +221,13 @@ interface MatrixRtcMediaSession : AutoCloseable {
      *
      * @param enabled whether to start or stop sharing.
      * @param token the user's grant, required when enabling and ignored when disabling.
+     * @param options how to capture, read when enabling.
      */
-    suspend fun setScreenShareEnabled(enabled: Boolean, token: MatrixRtcScreenCaptureToken? = null): Result<Unit>
+    suspend fun setScreenShareEnabled(
+        enabled: Boolean,
+        token: MatrixRtcScreenCaptureToken? = null,
+        options: MatrixRtcScreenShareOptions = MatrixRtcScreenShareOptions.DEFAULT,
+    ): Result<Unit>
 
     /**
      * Leave the transport. Does not leave the RTC session, see [MatrixRtcCall.leave].

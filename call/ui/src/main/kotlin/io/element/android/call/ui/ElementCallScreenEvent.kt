@@ -7,11 +7,13 @@
 
 package io.element.android.call.ui
 
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.rtc.MatrixRtcDetailWindow
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcTileId
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
@@ -54,6 +56,15 @@ sealed interface ElementCallScreenEvent {
 
     /** From the next join (043 R16a). */
     data class SetVideoCodec(val codec: MatrixRtcVideoCodec) : ElementCallScreenEvent
+
+    /** From the next share. */
+    data class SetScreenShareOptions(val options: MatrixRtcScreenShareOptions) : ElementCallScreenEvent
+
+    /** At once. */
+    data class SetStageLayout(val layout: ElementCallStageLayout) : ElementCallScreenEvent
+
+    /** The share sheet's Start: on to the system's capture dialog. */
+    data object StartScreenShare : ElementCallScreenEvent
 
     /** A failed MSC join's way back: save Room state, then close the call (043 R18a). It does not rejoin. */
     data object UseRoomStateAndClose : ElementCallScreenEvent
@@ -105,8 +116,8 @@ sealed interface ElementCallScreenEvent {
     /**
      * Start or stop sharing the screen.
      *
-     * Starting always goes through the system's capture dialog, because the grant is one-shot and
-     * there is nothing to remember between shares.
+     * Starting opens the share sheet, whose [StartScreenShare] goes through the system's capture dialog: the grant
+     * is one-shot, so there is nothing to remember between shares but the sheet's choices.
      */
     data object ToggleScreenShare : ElementCallScreenEvent
 

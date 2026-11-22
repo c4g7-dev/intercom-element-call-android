@@ -14,6 +14,19 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 _Nothing yet._
 
+## 0.1.2-intercom.1 - 2026-11-22
+
+The InterCom fork, on top of 0.1.2 (README, "InterCom changes").
+
+- `ElementCallPreferencesStore` gains `screenShare` and `stageLayout`; a store of the host's own implements them.
+- `ElementCallController` gains `setScreenShareOptions` and `setStageLayout`; `MatrixRtcMediaSession.setScreenShareEnabled`
+  gains `options`, for a host with its own RTC client.
+- A screen share publishes one layer at up to 1440p and 30 fps, and the device's audio as `SCREEN_SHARE_AUDIO` when asked
+  (Android 10). The host's manifest needs nothing new: the `mediaProjection` service type and `RECORD_AUDIO` are already
+  required.
+- The share button opens a sheet before the system dialog; `ElementCallSettingsSheet` gains `SCREEN_SHARE`.
+- A second stage layout, the equal grid.
+
 ## 0.1.2 - 2026-11-18
 
 - The call settings (feature-hq 043). `ElementCallOptions.membershipFormat` is removed: the format is a device preference,

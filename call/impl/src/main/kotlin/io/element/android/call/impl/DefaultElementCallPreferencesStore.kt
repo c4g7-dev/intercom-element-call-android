@@ -12,7 +12,9 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 
 /**
@@ -43,6 +45,22 @@ internal class DefaultElementCallPreferencesStore(context: Context) : ElementCal
         get() = prefs.getEnum(KEY_VIDEO_CODEC, ElementCallPreferences.DEFAULT.videoCodec)
         set(value) = prefs.edit { putString(KEY_VIDEO_CODEC, value.name) }
 
+    override var screenShare: MatrixRtcScreenShareOptions
+        get() = MatrixRtcScreenShareOptions(
+            maxEdge = prefs.getInt(KEY_SCREEN_SHARE_MAX_EDGE, MatrixRtcScreenShareOptions.DEFAULT.maxEdge),
+            framesPerSecond = prefs.getInt(KEY_SCREEN_SHARE_FPS, MatrixRtcScreenShareOptions.DEFAULT.framesPerSecond),
+            sharesDeviceAudio = prefs.getBoolean(KEY_SCREEN_SHARE_DEVICE_AUDIO, MatrixRtcScreenShareOptions.DEFAULT.sharesDeviceAudio),
+        ).normalized()
+        set(value) = prefs.edit {
+            putInt(KEY_SCREEN_SHARE_MAX_EDGE, value.maxEdge)
+            putInt(KEY_SCREEN_SHARE_FPS, value.framesPerSecond)
+            putBoolean(KEY_SCREEN_SHARE_DEVICE_AUDIO, value.sharesDeviceAudio)
+        }
+
+    override var stageLayout: ElementCallStageLayout
+        get() = prefs.getEnum(KEY_STAGE_LAYOUT, ElementCallPreferences.DEFAULT.stageLayout)
+        set(value) = prefs.edit { putString(KEY_STAGE_LAYOUT, value.name) }
+
     /** By name; a name this version does not know reads as [default]. */
     private inline fun <reified T : Enum<T>> SharedPreferences.getEnum(key: String, default: T): T =
         getString(key, null)?.let { name -> enumValues<T>().firstOrNull { it.name == name } } ?: default
@@ -55,5 +73,9 @@ internal class DefaultElementCallPreferencesStore(context: Context) : ElementCal
         private const val KEY_SOUND_EFFECTS_VOLUME = "sound_effects_volume"
         private const val KEY_MEMBERSHIP_FORMAT = "membership_format"
         private const val KEY_VIDEO_CODEC = "video_codec"
+        private const val KEY_SCREEN_SHARE_MAX_EDGE = "screen_share_max_edge"
+        private const val KEY_SCREEN_SHARE_FPS = "screen_share_fps"
+        private const val KEY_SCREEN_SHARE_DEVICE_AUDIO = "screen_share_device_audio"
+        private const val KEY_STAGE_LAYOUT = "stage_layout"
     }
 }

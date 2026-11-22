@@ -10,12 +10,14 @@ package io.element.android.call.ui
 import io.element.android.call.api.ElementCallConnection
 import io.element.android.call.api.ElementCallHandRequestFailure
 import io.element.android.call.api.ElementCallInterruption
+import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
 import io.element.android.call.api.rtc.MatrixRtcFrameEncryptionState
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamRef
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 import io.element.android.call.api.rtc.MatrixRtcVideoFrame
@@ -177,6 +179,10 @@ data class ElementCallScreenState(
     val membershipFormat: MatrixRtcMembershipFormat,
     /** The codec the next join publishes with (043 R15, R16a). */
     val videoCodec: MatrixRtcVideoCodec,
+    /** How the next screen share is captured, as the share sheet shows it. */
+    val screenShare: MatrixRtcScreenShareOptions,
+    /** How the stage arranges its tiles. */
+    val stageLayout: ElementCallStageLayout,
     /** What the codec choice offers, Auto first (043 R15); empty while Developer options is closed. */
     val videoCodecs: ImmutableList<MatrixRtcVideoCodec>,
     /** The format this call joined with, which a failure is judged by (043 R18). */
@@ -186,6 +192,9 @@ data class ElementCallScreenState(
     val eventSink: (ElementCallScreenEvent) -> Unit,
 ) {
     val spotlightTileId: String? get() = spotlight.tileId
+
+    /** Every tile the same size and nothing spotlit: [tiles] then carries no hero and [spotlight] no choice. */
+    val isEqualGrid: Boolean get() = stageLayout == ElementCallStageLayout.EQUAL_GRID
 
     /**
      * Whether [settingsSheet] is drawn. Not over a failed call, whose screen is the whole screen, Use Room state included
