@@ -15,11 +15,13 @@ import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Process
 import androidx.annotation.RequiresApi
+import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.impl.util.runCatchingExceptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.matrix.rtc.FfiAudioEncoding
 import org.matrix.rtc.FfiAudioFrame
 import org.matrix.rtc.FfiLocalTrack
 import timber.log.Timber
@@ -181,4 +183,27 @@ internal object ScreenAudioFormat {
     const val CHANNEL_COUNT = 2
     const val SAMPLES_PER_FRAME = SAMPLE_RATE / 1000 * AudioFormat.FRAME_DURATION_MS
     const val BYTES_PER_FRAME = SAMPLES_PER_FRAME * CHANNEL_COUNT * Short.SIZE_BYTES
+}
+
+/**
+ * How a share's audio is encoded: stereo Opus at a music bitrate, every frame sent.
+ *
+ * - Two channels, announced to the SFU so that it answers with `stereo=1`; without that the encoder folds the capture
+ *   down to one, whatever the source holds.
+ * - The bitrate caps the encoder: 160 kbit/s unless another of [MatrixRtcScreenShareOptions.AUDIO_BITRATES] is chosen,
+ *   always within [MIN_BITRATE]..[MAX_BITRATE]. The core holds it to the same range.
+ * - No DTX: discontinuous transmission stops sending in what it takes for silence, which cuts quiet passages and the
+ *   tail of a reverb.
+ * - No RED: redundant copies double the traffic at these rates, for a stream that is not a conversation.
+ */
+internal object ScreenAudioEncoding {
+    const val MIN_BITRATE = 128_000
+    const val MAX_BITRATE = 192_000
+
+    fun of(bitrate: Int) = FfiAudioEncoding(
+        maxBitrateBps = bitrate.coerceIn(MIN_BITRATE, MAX_BITRATE).toULong(),
+        stereo = true,
+        dtx = false,
+        red = false,
+    )
 }

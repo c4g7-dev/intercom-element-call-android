@@ -124,6 +124,8 @@ fun rememberElementCallScreenState(
     // Fullscreen is the screen's own state (spec 000 R3): saved across rotation (R10), gone with the
     // screen when the call is minimised (R25), and ended when the tile leaves (R19).
     var fullscreenTileId by rememberSaveable { mutableStateOf<String?>(null) }
+    // The tile whose volume sheet is open. Saved like a settings sheet, and closed when its tile leaves.
+    var volumeTileId by rememberSaveable { mutableStateOf<String?>(null) }
     var isFullscreenChromeVisible by rememberSaveable { mutableStateOf(false) }
     // The stage's chrome (spec 014). Not saved: a rotation resets it (R12), and minimizing or Picture
     // in Picture disposes this presenter, so coming back starts from the orientation's start (R29).
@@ -141,6 +143,7 @@ fun rememberElementCallScreenState(
         wasRinging = isRinging
     }
     LaunchedEffect(tiles) {
+        if (volumeTileId != null && tiles.none { it.tileId == volumeTileId }) volumeTileId = null
         if (fullscreenTileId != null && tiles.none { it.tileId == fullscreenTileId }) {
             fullscreenTileId = null
             isFullscreenChromeVisible = false
@@ -203,6 +206,17 @@ fun rememberElementCallScreenState(
             is ElementCallScreenEvent.SetVideoCodec -> controller.setVideoCodec(event.codec)
             is ElementCallScreenEvent.SetScreenShareOptions -> controller.setScreenShareOptions(event.options)
             is ElementCallScreenEvent.SetStageLayout -> controller.setStageLayout(event.layout)
+            is ElementCallScreenEvent.ShowTileVolume -> {
+                // Ours plays nothing here, and a callee still being rung is not a tile yet.
+                val tile = tiles.firstOrNull { it.tileId == event.tileId }
+                if (tile != null && !tile.isLocal && tile.ring == null) {
+                    // The press was held, so it is not the first half of a tap on the chrome.
+                    pendingTap.cancel()
+                    volumeTileId = event.tileId
+                }
+            }
+            ElementCallScreenEvent.DismissTileVolume -> volumeTileId = null
+            is ElementCallScreenEvent.SetPlaybackVolume -> controller.setPlaybackVolume(event.source, event.volume)
             ElementCallScreenEvent.StartScreenShare -> {
                 settingsSheet = null
                 // Always asks. Unlike the camera there is nothing to check first: the grant
@@ -336,6 +350,7 @@ fun rememberElementCallScreenState(
         preferences = preferences,
         // Read once the sheet opens: on a call that has joined the native core is already loaded.
         videoCodecs = if (settingsSheet == ElementCallSettingsSheet.DEVELOPER_OPTIONS) videoCodecs.value else persistentListOf(),
+        volumeTile = volumeTileId?.let { id -> tiles.firstOrNull { it.tileId == id && !it.isLocal } },
         isDeveloperModeEnabled = controller.isDeveloperModeEnabled,
         eventSink = ::handleEvent,
     )
@@ -434,6 +449,7 @@ private fun ElementCallSnapshot?.toState(
     settingsSheet: ElementCallSettingsSheet?,
     preferences: ElementCallPreferences,
     videoCodecs: ImmutableList<MatrixRtcVideoCodec>,
+    volumeTile: CallTileData?,
     isDeveloperModeEnabled: Boolean,
     eventSink: (ElementCallScreenEvent) -> Unit,
 ) = ElementCallScreenState(
@@ -489,6 +505,9 @@ private fun ElementCallSnapshot?.toState(
     videoCodec = preferences.videoCodec,
     screenShare = preferences.screenShare,
     stageLayout = preferences.stageLayout,
+    playbackVolumes = preferences.playbackVolumes.toImmutableMap(),
+    // Over a live call only, like every sheet of the call.
+    volumeTile = volumeTile.takeIf { this?.connection == ElementCallConnection.Connected },
     videoCodecs = videoCodecs,
     joiningFormat = this?.joiningFormat,
     isDeveloperModeEnabled = isDeveloperModeEnabled,

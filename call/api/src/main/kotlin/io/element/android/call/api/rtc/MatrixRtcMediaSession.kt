@@ -230,6 +230,14 @@ interface MatrixRtcMediaSession : AutoCloseable {
     ): Result<Unit>
 
     /**
+     * How loud each remote source is played, where that is not as sent: applied at once to what is playing and to
+     * whatever starts later. A source that is not in the map plays as sent.
+     */
+    fun setPlaybackVolumes(volumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>) {
+        // Nothing to apply for a session that plays nothing itself.
+    }
+
+    /**
      * Leave the transport. Does not leave the RTC session, see [MatrixRtcCall.leave].
      */
     suspend fun disconnect(): Result<Unit>

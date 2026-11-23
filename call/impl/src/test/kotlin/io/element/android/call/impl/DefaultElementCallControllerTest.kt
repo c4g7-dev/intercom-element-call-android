@@ -39,6 +39,8 @@ import io.element.android.call.api.rtc.MatrixRtcJoinException
 import io.element.android.call.api.rtc.MatrixRtcLocalState
 import io.element.android.call.api.rtc.MatrixRtcMediaPhase
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcRing
@@ -2305,6 +2307,31 @@ class DefaultElementCallControllerTest {
         )
         // Applied to the running call's sounds at once, those playing included (037 R22).
         assertThat(platform.soundEffectRenderers.single().volume).isEqualTo(1f)
+    }
+
+    /** Per user and per source, so that it finds the same person again in the next call, under a new member id. */
+    @Test
+    fun `a tile's volume reaches the running call at once, is kept, and is given to the next call as it joins`() = runTest {
+        val voice = MatrixRtcPlaybackSource(A_REACTING_USER_ID, MatrixRtcStreamKind.MICROPHONE)
+        val share = MatrixRtcPlaybackSource(A_REACTING_USER_ID, MatrixRtcStreamKind.SCREEN_SHARE_AUDIO)
+        val store = FakeElementCallPreferencesStore(playbackVolumes = mapOf(share to MatrixRtcPlaybackVolume(volume = 0.5f)))
+        val (controller, session, _) = aCallWithReactions(preferencesStore = store)
+        // What was kept from an earlier call is the first thing the session is told.
+        assertThat(session.playbackVolumeCalls).containsExactly(mapOf(share to MatrixRtcPlaybackVolume(volume = 0.5f)))
+
+        controller.setPlaybackVolume(voice, MatrixRtcPlaybackVolume(volume = 1.5f))
+        // Out of range is held to the slider, and the default takes the entry away.
+        controller.setPlaybackVolume(share, MatrixRtcPlaybackVolume(volume = 7f, isMuted = true))
+        controller.setPlaybackVolume(voice, MatrixRtcPlaybackVolume.DEFAULT)
+
+        val kept = mapOf(share to MatrixRtcPlaybackVolume(volume = 2f, isMuted = true))
+        assertThat(session.playbackVolumeCalls.drop(1)).containsExactly(
+            mapOf(share to MatrixRtcPlaybackVolume(volume = 0.5f), voice to MatrixRtcPlaybackVolume(volume = 1.5f)),
+            mapOf(share to MatrixRtcPlaybackVolume(volume = 2f, isMuted = true), voice to MatrixRtcPlaybackVolume(volume = 1.5f)),
+            kept,
+        ).inOrder()
+        assertThat(store.playbackVolumes).isEqualTo(kept)
+        assertThat(controller.preferences.value.playbackVolumes).isEqualTo(kept)
     }
 
     @Test

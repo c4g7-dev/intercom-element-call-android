@@ -10,6 +10,8 @@ package io.element.android.call.impl.rtc.media
 import android.media.AudioAttributes
 import android.media.AudioTrack
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
+import io.element.android.call.api.rtc.MatrixRtcStreamKind
+import io.element.android.call.api.rtc.MatrixRtcStreamRef
 import io.element.android.call.impl.util.runCatchingExceptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -21,38 +23,47 @@ import java.util.concurrent.ConcurrentHashMap
 import android.media.AudioFormat as AndroidAudioFormat
 
 /**
- * Plays remote audio streams, one [AudioTrack] per remote member.
+ * Plays remote audio streams, one [AudioTrack] per stream: a member's voice, and the audio of their screen share
+ * beside it.
  *
  * Letting the platform mix several tracks is simpler than mixing ourselves and is fine at the
  * handful of participants a 1:1 or small call has.
+ *
+ * Every track is a call's: the same usage for a voice and for a share's audio, so both follow the call's route
+ * (earpiece, speaker, headset) and its volume keys, and the platform's echo canceller hears both.
  */
 internal class AudioPlayback(
     private val scope: CoroutineScope,
     private val onLevel: (memberId: String, MatrixRtcAudioLevel) -> Unit = { _, _ -> },
 ) {
-    private val players = ConcurrentHashMap<String, Player>()
+    private val players = ConcurrentHashMap<MatrixRtcStreamRef, Player>()
 
     // The loop leaves on either side going away - the stream ending or the track being released -
     // and each is its own exit on purpose, so the log can say which.
     @Suppress("LoopWithTooManyJumpStatements")
-    fun start(memberId: String, stream: AudioFrameStream) {
-        if (players.containsKey(memberId)) return
+    fun start(ref: MatrixRtcStreamRef, stream: AudioFrameStream, gain: Float = 1f) {
+        if (players.containsKey(ref)) return
 
-        val track = createAudioTrack() ?: return
-        val player = Player(track)
+        val memberId = ref.memberId
+        // A share's audio is its own stream beside the voice, and the levels are per member: only the voice reports.
+        val isVoice = ref.kind == MatrixRtcStreamKind.MICROPHONE
+        val name = if (isVoice) memberId else "$memberId/${ref.kind}"
+        val channels = if (isVoice) AudioFormat.CHANNEL_COUNT else ScreenAudioFormat.CHANNEL_COUNT
+        val track = createAudioTrack(channels) ?: return
+        val player = Player(track, PlaybackGain().also { it.gain = gain })
         // Under-runs are reported on the meter's cadence and only when the count moves, so a healthy
         // call stays quiet and a crackling one says so in the same place the levels already are.
         var loggedUnderruns = 0
-        val meter = AudioLevelMeter(label = "in $memberId") { level ->
+        val meter = AudioLevelMeter(label = "in $name") { level ->
             val underruns = player.underrunCount()
             if (underruns > loggedUnderruns) {
                 Timber.w(
-                    "MatrixRTC: audio in $memberId - ${underruns - loggedUnderruns} new AudioTrack " +
+                    "MatrixRTC: audio in $name - ${underruns - loggedUnderruns} new AudioTrack " +
                         "under-runs ($underruns total), playback is not keeping up"
                 )
                 loggedUnderruns = underruns
             }
-            onLevel(memberId, level.copy(underrunCount = underruns))
+            if (isVoice) onLevel(memberId, level.copy(underrunCount = underruns))
         }
         // On a thread of its own at audio priority, see audioDispatcher: on the shared IO pool this
         // loop lost to video work and the track under-ran, which is what a crackle is.
@@ -61,37 +72,46 @@ internal class AudioPlayback(
             player.play()
             while (isActive) {
                 val frame = stream.next() ?: break
-                // The frame is already the little-endian PCM16 AudioTrack wants, so it goes straight
-                // out, and the meter reads those very same bytes.
-                val bytes = frame.data
+                // The frame is already the little-endian PCM16 AudioTrack wants. The meter reads what
+                // arrived, before our own volume: a member turned down here is still speaking.
+                val bytes = adaptChannels(frame.data, from = frame.numChannels.toInt(), to = channels)
                 meter.onFrame(bytes)
+                player.gain.apply(bytes, channels)
                 // Stops on a released track rather than writing to one: the write and the release
                 // are mutually exclusive, so this can only be false once the track is really gone.
                 if (!player.write(bytes)) break
             }
-            Timber.d("MatrixRTC: audio stream for $memberId ended")
+            Timber.d("MatrixRTC: audio stream for $name ended")
         }
         // Closed on completion rather than in release(): release does not wait for the loop, and the
         // thread has to outlive the write that release is letting finish.
         job.invokeOnCompletion { dispatcher.close() }
         // Attached before the player is reachable, so nothing can release it without a job to cancel.
         player.attach(job)
-        players[memberId] = player
-        Timber.d("MatrixRTC: playing audio for $memberId")
+        players[ref] = player
+        Timber.d("MatrixRTC: playing audio for $name, $channels channel(s), gain $gain")
     }
 
-    fun stop(memberId: String) {
-        players.remove(memberId)?.release()
+    /** The gain [ref] is played with from its next buffer on; nothing if it is not playing. */
+    fun setGain(ref: MatrixRtcStreamRef, gain: Float) {
+        players[ref]?.gain?.gain = gain
+    }
+
+    fun isPlaying(ref: MatrixRtcStreamRef): Boolean = players.containsKey(ref)
+
+    fun stop(ref: MatrixRtcStreamRef) {
+        players.remove(ref)?.release()
     }
 
     fun stopAll() {
         players.keys.toList().forEach(::stop)
     }
 
-    private fun createAudioTrack(): AudioTrack? {
+    private fun createAudioTrack(channels: Int): AudioTrack? {
+        val channelMask = if (channels == 2) AndroidAudioFormat.CHANNEL_OUT_STEREO else AndroidAudioFormat.CHANNEL_OUT_MONO
         val minBufferSize = AudioTrack.getMinBufferSize(
             AudioFormat.SAMPLE_RATE,
-            AndroidAudioFormat.CHANNEL_OUT_MONO,
+            channelMask,
             AndroidAudioFormat.ENCODING_PCM_16BIT,
         )
         if (minBufferSize <= 0) {
@@ -111,13 +131,13 @@ internal class AudioPlayback(
                 AndroidAudioFormat.Builder()
                     .setEncoding(AndroidAudioFormat.ENCODING_PCM_16BIT)
                     .setSampleRate(AudioFormat.SAMPLE_RATE)
-                    .setChannelMask(AndroidAudioFormat.CHANNEL_OUT_MONO)
+                    .setChannelMask(channelMask)
                     .build()
             )
             // Floored at a few frames of slack rather than taken as-is, the way capture already
             // does it: at exactly the minimum the track has to be refilled before it drains, and a
             // GC pause - up to 2.3 ms on a loaded device - is enough to miss that.
-            .setBufferSizeInBytes(maxOf(minBufferSize, AudioFormat.MIN_DEVICE_BUFFER_BYTES))
+            .setBufferSizeInBytes(maxOf(minBufferSize, AudioFormat.MIN_DEVICE_BUFFER_BYTES * channels))
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
     }
@@ -136,7 +156,7 @@ internal class AudioPlayback(
      * The lock is held across the write, so release waits for one buffer - bounded by
      * `getMinBufferSize`, on the order of tens of milliseconds - rather than proceeding underneath it.
      */
-    private class Player(private val track: AudioTrack) {
+    private class Player(private val track: AudioTrack, val gain: PlaybackGain) {
         private val lock = Any()
         private var job: Job? = null
         private var isReleased = false

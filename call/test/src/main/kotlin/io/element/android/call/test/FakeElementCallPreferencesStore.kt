@@ -11,6 +11,8 @@ import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 
@@ -23,4 +25,5 @@ class FakeElementCallPreferencesStore(
     override var videoCodec: MatrixRtcVideoCodec = ElementCallPreferences.DEFAULT.videoCodec,
     override var screenShare: MatrixRtcScreenShareOptions = ElementCallPreferences.DEFAULT.screenShare,
     override var stageLayout: ElementCallStageLayout = ElementCallPreferences.DEFAULT.stageLayout,
+    override var playbackVolumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume> = emptyMap(),
 ) : ElementCallPreferencesStore

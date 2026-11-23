@@ -12,6 +12,8 @@ import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.rtc.MatrixRtcDetailWindow
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
@@ -65,6 +67,14 @@ sealed interface ElementCallScreenEvent {
 
     /** The share sheet's Start: on to the system's capture dialog. */
     data object StartScreenShare : ElementCallScreenEvent
+
+    /** A long press on a tile: open its volume. Nothing for our own tile, which we do not hear. */
+    data class ShowTileVolume(val tileId: String) : ElementCallScreenEvent
+
+    data object DismissTileVolume : ElementCallScreenEvent
+
+    /** How loud [source] is played here, at once and from call to call. */
+    data class SetPlaybackVolume(val source: MatrixRtcPlaybackSource, val volume: MatrixRtcPlaybackVolume) : ElementCallScreenEvent
 
     /** A failed MSC join's way back: save Room state, then close the call (043 R18a). It does not rejoin. */
     data object UseRoomStateAndClose : ElementCallScreenEvent

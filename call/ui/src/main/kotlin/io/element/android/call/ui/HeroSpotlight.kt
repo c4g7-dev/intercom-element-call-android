@@ -156,6 +156,7 @@ internal fun HeroSpotlight(
             val pictureInPictureSource = pictureInPictureSourceModifier(isShown && tile.tileId == state.pictureInPictureTileId) {
                 state.eventSink(ElementCallScreenEvent.SetPictureInPictureSource(it))
             }
+            val showVolume: () -> Unit = { state.eventSink(ElementCallScreenEvent.ShowTileVolume(tile.tileId)) }
             CallTile(
                 tile = tile,
                 videoFrames = state.videoFrames[tile.tileId],
@@ -170,6 +171,7 @@ internal fun HeroSpotlight(
                     .tileTapGestures(
                         onTap = onTap,
                         onDoubleTap = { state.eventSink(ElementCallScreenEvent.ToggleFullscreen(tile.tileId)) },
+                        onLongPress = showVolume.takeUnless { tile.isLocal },
                     )
                     .then(pictureInPictureSource),
             )

@@ -21,6 +21,8 @@ import io.element.android.call.api.rtc.MatrixRtcConnectionState
 import io.element.android.call.api.rtc.MatrixRtcFrameEncryptionState
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcParticipant
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
@@ -431,6 +433,8 @@ fun anElementCallScreenState(
     videoCodec: MatrixRtcVideoCodec = MatrixRtcVideoCodec.AUTO,
     screenShare: MatrixRtcScreenShareOptions = MatrixRtcScreenShareOptions.DEFAULT,
     stageLayout: ElementCallStageLayout = ElementCallStageLayout.AUTOMATIC,
+    playbackVolumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume> = emptyMap(),
+    volumeTile: CallTileData? = null,
     videoCodecs: List<MatrixRtcVideoCodec> = listOf(MatrixRtcVideoCodec.AUTO, MatrixRtcVideoCodec.VP8, MatrixRtcVideoCodec.H264, MatrixRtcVideoCodec.VP9),
     joiningFormat: MatrixRtcMembershipFormat? = MatrixRtcMembershipFormat.ROOM_STATE,
     isDeveloperModeEnabled: Boolean = false,
@@ -502,6 +506,8 @@ fun anElementCallScreenState(
     videoCodec = videoCodec,
     screenShare = screenShare,
     stageLayout = stageLayout,
+    playbackVolumes = playbackVolumes.toImmutableMap(),
+    volumeTile = volumeTile,
     videoCodecs = videoCodecs.toImmutableList(),
     joiningFormat = joiningFormat,
     isDeveloperModeEnabled = isDeveloperModeEnabled,

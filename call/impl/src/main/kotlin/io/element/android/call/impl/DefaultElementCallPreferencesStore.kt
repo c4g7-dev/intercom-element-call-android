@@ -14,8 +14,13 @@ import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
+import io.element.android.call.api.rtc.MatrixRtcStreamKind
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
+import io.element.android.call.api.rtc.id.UserId
+import io.element.android.call.impl.util.runCatchingExceptions
 
 /**
  * The preferences on this device, surviving a restart, shared with nothing (feature-hq 037 R14, 043 R8, R13, R16).
@@ -50,16 +55,22 @@ internal class DefaultElementCallPreferencesStore(context: Context) : ElementCal
             maxEdge = prefs.getInt(KEY_SCREEN_SHARE_MAX_EDGE, MatrixRtcScreenShareOptions.DEFAULT.maxEdge),
             framesPerSecond = prefs.getInt(KEY_SCREEN_SHARE_FPS, MatrixRtcScreenShareOptions.DEFAULT.framesPerSecond),
             sharesDeviceAudio = prefs.getBoolean(KEY_SCREEN_SHARE_DEVICE_AUDIO, MatrixRtcScreenShareOptions.DEFAULT.sharesDeviceAudio),
+            audioBitrate = prefs.getInt(KEY_SCREEN_SHARE_AUDIO_BITRATE, MatrixRtcScreenShareOptions.DEFAULT.audioBitrate),
         ).normalized()
         set(value) = prefs.edit {
             putInt(KEY_SCREEN_SHARE_MAX_EDGE, value.maxEdge)
             putInt(KEY_SCREEN_SHARE_FPS, value.framesPerSecond)
             putBoolean(KEY_SCREEN_SHARE_DEVICE_AUDIO, value.sharesDeviceAudio)
+            putInt(KEY_SCREEN_SHARE_AUDIO_BITRATE, value.audioBitrate)
         }
 
     override var stageLayout: ElementCallStageLayout
         get() = prefs.getEnum(KEY_STAGE_LAYOUT, ElementCallPreferences.DEFAULT.stageLayout)
         set(value) = prefs.edit { putString(KEY_STAGE_LAYOUT, value.name) }
+
+    override var playbackVolumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>
+        get() = PlaybackVolumesCodec.decode(prefs.getStringSet(KEY_PLAYBACK_VOLUMES, null).orEmpty())
+        set(value) = prefs.edit { putStringSet(KEY_PLAYBACK_VOLUMES, PlaybackVolumesCodec.encode(value)) }
 
     /** By name; a name this version does not know reads as [default]. */
     private inline fun <reified T : Enum<T>> SharedPreferences.getEnum(key: String, default: T): T =
@@ -77,5 +88,34 @@ internal class DefaultElementCallPreferencesStore(context: Context) : ElementCal
         private const val KEY_SCREEN_SHARE_FPS = "screen_share_fps"
         private const val KEY_SCREEN_SHARE_DEVICE_AUDIO = "screen_share_device_audio"
         private const val KEY_STAGE_LAYOUT = "stage_layout"
+        private const val KEY_SCREEN_SHARE_AUDIO_BITRATE = "screen_share_audio_bitrate"
+        private const val KEY_PLAYBACK_VOLUMES = "playback_volumes"
     }
+}
+
+/**
+ * The kept volumes as a set of strings, one per source: `<kind> <volume> <muted> <user id>`. The user id is last and
+ * taken whole, whatever it contains. An entry this version cannot read is left out, and plays as sent.
+ */
+internal object PlaybackVolumesCodec {
+    fun encode(volumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>): Set<String> =
+        volumes.mapTo(mutableSetOf()) { (source, volume) ->
+            "${source.kind.name} ${volume.volume} ${if (volume.isMuted) 1 else 0} ${source.userId.value}"
+        }
+
+    fun decode(entries: Set<String>): Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume> =
+        entries.mapNotNull(::decodeEntry).toMap()
+
+    private fun decodeEntry(entry: String): Pair<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>? {
+        val parts = entry.split(' ', limit = FIELDS)
+        if (parts.size != FIELDS) return null
+        val kind = MatrixRtcStreamKind.entries.firstOrNull { it.name == parts[0] }
+            ?.takeIf { it == MatrixRtcStreamKind.MICROPHONE || it == MatrixRtcStreamKind.SCREEN_SHARE_AUDIO }
+            ?: return null
+        val volume = parts[1].toFloatOrNull()?.takeIf { it.isFinite() } ?: return null
+        val userId = runCatchingExceptions { UserId(parts[3]) }.getOrNull() ?: return null
+        return MatrixRtcPlaybackSource(userId, kind) to MatrixRtcPlaybackVolume(volume = volume, isMuted = parts[2] == "1").normalized()
+    }
+
+    private const val FIELDS = 4
 }

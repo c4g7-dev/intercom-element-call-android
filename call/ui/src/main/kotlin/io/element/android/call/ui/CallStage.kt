@@ -746,6 +746,7 @@ private fun PlacedTile(
     if (slot.isFullscreen) isRaised = true
     // A landscape picture on an upright stage is shown whole when it fills the stage (019 R4).
     var videoSize by remember { mutableStateOf<IntSize?>(null) }
+    val showVolume: () -> Unit = { eventSink(ElementCallScreenEvent.ShowTileVolume(tile.tileId)) }
     val targetFit = if (appearance == CallTileAppearance.FullBleed) {
         if (!isLandscapeStage && videoSize?.aspect() ?: 0f > 1f) 1f else 0f
     } else if (slot.fitsShare && tile.isScreenShare && appearance == CallTileAppearance.Grid) {
@@ -833,6 +834,8 @@ private fun PlacedTile(
             .tileTapGestures(
                 onTap = onTap,
                 onDoubleTap = { if (allowsFullscreen) eventSink(ElementCallScreenEvent.ToggleFullscreen(tile.tileId)) },
+                // Its volume, for a tile that is somebody else's.
+                onLongPress = showVolume.takeUnless { tile.isLocal || tile.ring != null },
             )
             .then(pictureInPictureSource)
             // Our own floating tile is not in the floating window, so it is not in what shrinks into it either.

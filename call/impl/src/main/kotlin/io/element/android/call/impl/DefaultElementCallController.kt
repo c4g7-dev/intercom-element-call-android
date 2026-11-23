@@ -40,6 +40,8 @@ import io.element.android.call.api.rtc.MatrixRtcJoinException
 import io.element.android.call.api.rtc.MatrixRtcLeaveReason
 import io.element.android.call.api.rtc.MatrixRtcMediaSession
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReaction
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcRing
@@ -594,6 +596,11 @@ internal class DefaultElementCallController(
 
     override fun setStageLayout(layout: ElementCallStageLayout) = storedPreferences.setStageLayout(layout)
 
+    override fun setPlaybackVolume(source: MatrixRtcPlaybackSource, volume: MatrixRtcPlaybackVolume) {
+        val volumes = storedPreferences.setPlaybackVolume(source, volume)
+        call?.setPlaybackVolumes(volumes)
+    }
+
     override val videoCodecs: List<MatrixRtcVideoCodec>
         get() = listOf(MatrixRtcVideoCodec.AUTO) + rtcClient.supportedVideoCodecs()
 
@@ -802,6 +809,7 @@ internal class DefaultElementCallController(
             return ElementCallFailure.Other("Media failed: ${it.message}", isJoinFailure = true) to FailureReport.MEDIA_NOT_ATTACHED
         }
         call = connected
+        connected.setPlaybackVolumes(preferences.value.playbackVolumes)
         connected.setComposedTiles(composedTiles)
         detailWindow?.let { connected.setDetailWindow(it) }
         rankingThreshold?.let { connected.setRankingThreshold(it) }

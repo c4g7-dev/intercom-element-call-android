@@ -10,6 +10,9 @@
     <string name="element_call_screen_share_options_audio">Share phone audio</string>
     <string name="element_call_screen_share_options_audio_description">Others hear what this phone plays: music, videos and games. Apps that do not allow recording, and calls, stay silent.</string>
     <string name="element_call_screen_share_options_audio_unsupported">Needs Android 10 or newer.</string>
+    <string name="element_call_screen_share_options_audio_bitrate">Audio quality</string>
+    <string name="element_call_screen_share_options_audio_bitrate_value">%1$s kbit/s</string>
+    <string name="element_call_screen_share_options_audio_bitrate_description">The phone\'s audio is sent in stereo at this bitrate, for music. Higher uses more data.</string>
     <string name="element_call_screen_share_options_resolution">Resolution</string>
     <string name="element_call_screen_share_options_resolution_value">Up to %1$dp</string>
     <string name="element_call_screen_share_options_resolution_description">The screen is sent at its own resolution up to this size. Higher is sharper and uses more battery and data.</string>
@@ -20,4 +23,14 @@
     <string name="element_call_preferences_layout">Layout</string>
     <string name="element_call_preferences_layout_equal_grid">Equal grid</string>
     <string name="element_call_preferences_layout_equal_grid_description">Every tile the same size, shared screens included and shown whole. Nobody is put in the spotlight.</string>
+    <string name="element_call_preferences_volume">Volume</string>
+    <string name="element_call_preferences_volume_hint">Press and hold a tile to change how loud you hear that person, or the audio of the screen they share.</string>
+    <string name="element_call_tile_volume_title_voice">Volume of %1$s</string>
+    <string name="element_call_tile_volume_title_screen_share">Volume of %1$s\'s screen</string>
+    <string name="element_call_tile_volume_slider">Volume</string>
+    <string name="element_call_tile_volume_muted">Muted</string>
+    <string name="element_call_tile_volume_mute">Mute for me</string>
+    <string name="element_call_tile_volume_mute_description">Only you stop hearing this. Everyone else hears it as before.</string>
+    <string name="element_call_tile_volume_description">Changes only what you hear on this phone, and is remembered for the next call. Above 100% the sound is amplified, up to +12 dB, and held back where it would distort.</string>
+    <string name="element_call_tile_volume_reset">Reset to 100%</string>
 </resources>

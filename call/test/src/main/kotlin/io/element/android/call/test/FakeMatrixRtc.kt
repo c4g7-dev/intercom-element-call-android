@@ -22,6 +22,8 @@ import io.element.android.call.api.rtc.MatrixRtcLocalState
 import io.element.android.call.api.rtc.MatrixRtcMediaSession
 import io.element.android.call.api.rtc.MatrixRtcMembership
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcRoom
@@ -395,6 +397,13 @@ class FakeMatrixRtcMediaSession(
 
     /** The options each start was given, in order. */
     val screenShareOptions = mutableListOf<MatrixRtcScreenShareOptions>()
+
+    /** Every map [setPlaybackVolumes] was given, in order. */
+    val playbackVolumeCalls = mutableListOf<Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>>()
+
+    override fun setPlaybackVolumes(volumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>) {
+        playbackVolumeCalls += volumes
+    }
 
     override suspend fun setScreenShareEnabled(
         enabled: Boolean,

@@ -66,6 +66,21 @@ internal fun ElementCallScreenShareContent(
                 testTag = ElementCallTestTags.SCREEN_SHARE_AUDIO,
             )
         }
+        if (options.sharesDeviceAudio && isDeviceAudioSupported) {
+            val bitrates = MatrixRtcScreenShareOptions.AUDIO_BITRATES.toImmutableList()
+            val bitrateLabels = bitrates.associateWith {
+                stringResource(R.string.element_call_screen_share_options_audio_bitrate_value, (it / KILO).toString())
+            }
+            ElementCallSettingsChoices(
+                title = stringResource(R.string.element_call_screen_share_options_audio_bitrate),
+                options = bitrates,
+                selected = options.audioBitrate,
+                label = bitrateLabels::getValue,
+                description = stringResource(R.string.element_call_screen_share_options_audio_bitrate_description),
+                testTag = ElementCallTestTags::screenShareAudioBitrate,
+                onSelect = { change(options.copy(audioBitrate = it)) },
+            )
+        }
         val edges = MatrixRtcScreenShareOptions.MAX_EDGES.toImmutableList()
         val edgeLabels = edges.associateWith { stringResource(R.string.element_call_screen_share_options_resolution_value, it.shortEdgeOf16By9()) }
         ElementCallSettingsChoices(
@@ -103,6 +118,8 @@ internal fun ElementCallScreenShareContent(
         }
     }
 }
+
+private const val KILO = 1000
 
 /** The name a long edge goes by: 2560 is 1440p, 1920 is 1080p, 1280 is 720p. */
 private fun Int.shortEdgeOf16By9(): Int = this * 9 / 16

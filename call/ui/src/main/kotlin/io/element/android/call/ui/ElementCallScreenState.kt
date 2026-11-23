@@ -15,6 +15,8 @@ import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
 import io.element.android.call.api.rtc.MatrixRtcFrameEncryptionState
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
@@ -183,6 +185,10 @@ data class ElementCallScreenState(
     val screenShare: MatrixRtcScreenShareOptions,
     /** How the stage arranges its tiles. */
     val stageLayout: ElementCallStageLayout,
+    /** How loud each user's voice and share is played here, where that is not as sent. */
+    val playbackVolumes: ImmutableMap<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>,
+    /** The tile whose volume sheet is open, see [ElementCallScreenEvent.ShowTileVolume]; null when none is. */
+    val volumeTile: CallTileData?,
     /** What the codec choice offers, Auto first (043 R15); empty while Developer options is closed. */
     val videoCodecs: ImmutableList<MatrixRtcVideoCodec>,
     /** The format this call joined with, which a failure is judged by (043 R18). */
@@ -192,6 +198,9 @@ data class ElementCallScreenState(
     val eventSink: (ElementCallScreenEvent) -> Unit,
 ) {
     val spotlightTileId: String? get() = spotlight.tileId
+
+    /** How loud [tile] is played here: its user's voice, or their share's audio. */
+    fun playbackVolume(tile: CallTileData): MatrixRtcPlaybackVolume = playbackVolumes[tile.playbackSource] ?: MatrixRtcPlaybackVolume.DEFAULT
 
     /** Every tile the same size and nothing spotlit: [tiles] then carries no hero and [spotlight] no choice. */
     val isEqualGrid: Boolean get() = stageLayout == ElementCallStageLayout.EQUAL_GRID

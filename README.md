@@ -8,31 +8,62 @@
 ## InterCom changes
 
 Branch `intercom`, based on the upstream tag `v0.1.2`; versions are `<upstream version>-intercom.<n>`. The artifacts
-are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.1`
+are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.2`
 into `~/.m2`, where the InterCom fork of Element X Android resolves them.
 
-- **Phone audio in a screen share.** While the screen is shared, what the phone plays (media, games, untagged playback)
-  is captured with Android 10's playback capture on the same projection and published as a LiveKit
-  `ScreenShareAudio` stream: 48 kHz stereo PCM into the core, no echo canceller, noise suppressor or gain control.
-  It stops with the share. Apps that opt out of capture, and call audio, are silent by design; the app's own sounds
-  are left out. The matrix-rust-rtc core 0.5.0 publishes every audio track with LiveKit's default audio options
-  (Opus capped at 48 kbit/s, DTX on, stereo not signalled): a higher bitrate and negotiated stereo need a change in
-  the Rust core, which this fork does not rebuild.
+The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.1`
+from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/intercom-matrix-rust-rtc) (branch
+`intercom`, on `v0.5.0`). It is resolved from `~/.m2` too: build and publish it first with that repository's
+`scripts/build-intercom-android.sh` (arm64-v8a only). What it changes is under "The core" below.
+
+- **Phone audio in a screen share, at music quality.** While the screen is shared, what the phone plays (media, games,
+  untagged playback) is captured with Android 10's playback capture on the same projection and published as a LiveKit
+  `ScreenShareAudio` stream: 48 kHz stereo PCM into the core, no echo canceller, noise suppressor or gain control,
+  encoded as stereo Opus at 160 kbit/s (128 and 192 can be chosen), with neither DTX nor RED. The microphone is
+  published as before. It stops with the share. Apps that opt out of capture, and call audio, are silent by design;
+  the app's own sounds are left out.
+- **A shared screen's audio is played.** The audio of somebody else's screen share (`ScreenShareAudio`) is now
+  opened and played beside their voice, in stereo where it was sent so, as a call stream: it follows the call's route
+  (earpiece, speaker, wired or Bluetooth headset) and volume keys. Over a Bluetooth headset's call profile it is
+  therefore mono and narrow, as the voices are.
+- **A volume for every tile.** A long press on somebody's tile opens its volume: 0 to 200 % and a mute, for a
+  person's voice and separately for the audio of their shared screen. Only this phone hears the difference, and the
+  choice is kept per user and source for later calls. The curve is the desktop's: the square of the slider up to
+  100 %, then 0 to +12 dB. The gain is applied to the decoded samples on their way to the `AudioTrack`, with a
+  limiter above 100 % (down at once, back over 150 ms, both channels alike) so that a boosted voice is held back
+  rather than clipped. `AudioTrack.setVolume` stops at 100 %, and the platform's `LoudnessEnhancer` is per audio
+  session and differs between devices; the samples are in our hands anyway.
 - **Sharper screen share.** The screen is sent at its own resolution up to 1440p on the long edge (1080p and 720p can
   be chosen), at 30 or 15 frames a second, as one layer without simulcast, capped by picture size at up to 10 Mbit/s
   (about 8 for 1080 by 2400). The core keeps the resolution and drops frames when the uplink runs short.
-- **A share sheet.** The share button opens a sheet with "Share phone audio" (on by default), the resolution and the
-  frame rate, kept for the next share, before the system's capture dialog.
+- **A share sheet.** The share button opens a sheet with "Share phone audio" (on by default), its quality, the
+  resolution and the frame rate, kept for the next share, before the system's capture dialog.
 - **Equal grid.** A second stage layout, chosen in Preferences and kept: every tile the same size, shared screens
   included and shown whole, as large as the stage allows for their number and its orientation; nothing is spotlit.
   A double tap still fills the stage with a tile.
 
-API additions a host sees: `MatrixRtcScreenShareOptions`, `ElementCallStageLayout`,
-`ElementCallPreferences.screenShare` / `.stageLayout` (and the same two on `ElementCallPreferencesStore`),
-`ElementCallController.setScreenShareOptions` / `setStageLayout`, and an `options` parameter on
+### The core
+
+`0.5.0-intercom.1` is matrix-rust-rtc `v0.5.0` with these differences, and no others:
+
+- `FfiPublishOptions` gains `audioEncoding` (bitrate cap, stereo, DTX, RED), `null` by default. A track published
+  without it, the microphone included, is published exactly as 0.5.0 does: LiveKit's defaults.
+- The `livekit` crate 0.9.7 is replaced by a patched copy that can announce an audio track as stereo. The flag is
+  off unless asked for.
+- A received `ScreenShareAudio` stream is handed over in two channels instead of one. Voices stay mono.
+- For every call: the answer to the SFU's offer repeats `stereo=1` on the audio sections where the offer has it, so
+  that a stereo track is decoded in stereo. An answer to an offer without one is unchanged.
+- Built for arm64-v8a only, on a developer's machine with Rust 1.100 (stable), not by upstream's release workflow.
+  Its exported symbols are those of the 0.5.0 library plus the metadata of the one new record.
+
+API additions a host sees: `MatrixRtcScreenShareOptions` (with `audioBitrate`), `ElementCallStageLayout`,
+`MatrixRtcPlaybackSource`, `MatrixRtcPlaybackVolume`, `ElementCallPreferences.screenShare` / `.stageLayout` /
+`.playbackVolumes` (and the same three on `ElementCallPreferencesStore`), `ElementCallController.setScreenShareOptions`
+/ `setStageLayout` / `setPlaybackVolume`, `MatrixRtcMediaSession.setPlaybackVolumes`, and an `options` parameter on
 `MatrixRtcMediaSession.setScreenShareEnabled`. A host that keeps the default preferences store has nothing to change.
 
-None of this has been run on a device: it compiles, and the unit tests and the quality checks pass.
+None of this has been run on a device or in a call: it compiles, and the unit tests and the quality checks pass. What
+the encoder is asked for is covered by tests on both sides of the FFI; what an SFU and a receiver make of it is not.
 
 ---
 

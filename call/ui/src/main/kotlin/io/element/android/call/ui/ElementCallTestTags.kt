@@ -57,7 +57,16 @@ object ElementCallTestTags {
 
     fun screenShareFrameRate(framesPerSecond: Int): String = "element_call_screen_share_frame_rate_$framesPerSecond"
 
+    fun screenShareAudioBitrate(bitrate: Int): String = "element_call_screen_share_audio_bitrate_$bitrate"
+
     const val PREFERENCES_EQUAL_GRID = "element_call_preferences_equal_grid"
+
+    /** A tile's volume, opened by a long press on it. */
+    const val TILE_VOLUME_SHEET = "element_call_tile_volume_sheet"
+    const val TILE_VOLUME_SLIDER = "element_call_tile_volume_slider"
+    const val TILE_VOLUME_VALUE = "element_call_tile_volume_value"
+    const val TILE_VOLUME_MUTE = "element_call_tile_volume_mute"
+    const val TILE_VOLUME_RESET = "element_call_tile_volume_reset"
 
     /** A failed MSC join's way back (043 R18a). */
     const val FAILURE_USE_ROOM_STATE = "element_call_failure_use_room_state"

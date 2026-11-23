@@ -8,6 +8,8 @@
 package io.element.android.call.api
 
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 
@@ -27,6 +29,11 @@ data class ElementCallPreferences(
     val screenShare: MatrixRtcScreenShareOptions,
     /** How the stage arranges its tiles. Applied at once. */
     val stageLayout: ElementCallStageLayout,
+    /**
+     * How loud each user's voice and each user's screen share is played here, where that is not as sent. Applied at once,
+     * and kept from call to call.
+     */
+    val playbackVolumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume> = emptyMap(),
 ) {
     companion object {
         /**
@@ -76,4 +83,9 @@ interface ElementCallPreferencesStore {
     var screenShare: MatrixRtcScreenShareOptions
 
     var stageLayout: ElementCallStageLayout
+
+    /** Only the volumes that are not the default; an implementation that keeps none plays everything as sent. */
+    var playbackVolumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>
+        get() = emptyMap()
+        set(value) = Unit
 }

@@ -18,6 +18,8 @@ import io.element.android.call.api.rtc.MatrixRtcFrameEncryptionState
 import io.element.android.call.api.rtc.MatrixRtcInterruptions
 import io.element.android.call.api.rtc.MatrixRtcLocalState
 import io.element.android.call.api.rtc.MatrixRtcMediaSession
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReceiveStats
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
@@ -35,6 +37,7 @@ import io.element.android.call.impl.rtc.media.AudioFormat
 import io.element.android.call.impl.rtc.media.AudioPlayback
 import io.element.android.call.impl.rtc.media.CameraVideoCapture
 import io.element.android.call.impl.rtc.media.ScreenAudioCapture
+import io.element.android.call.impl.rtc.media.ScreenAudioEncoding
 import io.element.android.call.impl.rtc.media.ScreenAudioFormat
 import io.element.android.call.impl.rtc.media.ScreenVideoCapture
 import io.element.android.call.impl.rtc.media.VideoFormat
@@ -244,10 +247,29 @@ internal class RustMatrixRtcMediaSession(
     private val membersWithoutMicrophone = mutableSetOf<String>()
 
     /**
-     * Members whose playback we have taken on. The sweep in [start] and a `StreamStarted` event race
-     * for anyone already publishing when we connect, and both would otherwise open a stream.
+     * The streams whose playback we have taken on: a member's voice, and their screen share's audio. The sweep in
+     * [start] and a `StreamStarted` event race for anyone already publishing when we connect, and both would otherwise
+     * open a stream.
      */
-    private val playbackClaims = ConcurrentHashMap.newKeySet<String>()
+    private val playbackClaims = ConcurrentHashMap.newKeySet<MatrixRtcStreamRef>()
+
+    /** What [followPlayback] last asked for, so a stream that starts later knows whether anyone is waiting for it. */
+    @Volatile
+    private var wantedPlayback: Set<MatrixRtcStreamRef> = emptySet()
+
+    /** How loud each user's voice and share is played, see [setPlaybackVolumes]. */
+    private val playbackVolumes = MutableStateFlow<Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>>(emptyMap())
+
+    override fun setPlaybackVolumes(volumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>) {
+        playbackVolumes.value = volumes
+        playbackClaims.forEach { audioPlayback.setGain(it, playbackGainOf(it)) }
+    }
+
+    /** The gain [ref] plays with: its user's volume for that kind of stream, as sent when nothing was chosen. */
+    private fun playbackGainOf(ref: MatrixRtcStreamRef): Float {
+        val userId = _tiles.value.order.firstOrNull { it.id.memberId == ref.memberId }?.userId ?: return 1f
+        return playbackVolumes.value[MatrixRtcPlaybackSource(userId, ref.kind)]?.gain ?: 1f
+    }
 
     private val audioCapture = AudioCapture(callScope, onLevel = { publishAudioLevel(localMemberId, it) })
     private val audioPlayback = AudioPlayback(callScope, onLevel = ::publishAudioLevel)
@@ -280,9 +302,12 @@ internal class RustMatrixRtcMediaSession(
         _audioLevels.update { it + (memberId to level) }
     }
 
-    private fun stopPlayback(memberId: String) {
-        audioPlayback.stop(memberId)
-        playbackClaims.remove(memberId)
+    private fun stopPlayback(ref: MatrixRtcStreamRef) {
+        audioPlayback.stop(ref)
+        playbackClaims.remove(ref)
+        // The rest is the member's, and goes with their voice: a share that ends leaves its member in the call.
+        if (ref.kind != MatrixRtcStreamKind.MICROPHONE) return
+        val memberId = ref.memberId
         _audioLevels.update { it - memberId }
         _receiveStats.update { stats -> stats.filterKeys { it.memberId != memberId } }
         // A member who left will not come back under this id - the core mints a fresh one on rejoin -
@@ -307,12 +332,16 @@ internal class RustMatrixRtcMediaSession(
      * appears later is picked up on the push it causes. Anyone gone from the order loses their player.
      * A missed `StreamStarted` can therefore never leave someone silent, and a missed
      * `ParticipantLeft` never leaks a player.
+     *
+     * A screen share tile is a candidate for its audio in the same way. Whether a share has audio no roster says, so
+     * that stream is also opened when the core reports it started, see [reopenStream].
      */
     private fun followPlayback() {
         callScope.launch {
             _tiles
                 .map { playbackCandidates(it.order, localMemberId) }
                 .collect { wanted ->
+                    wantedPlayback = wanted
                     (playbackClaims - wanted).forEach { stopPlayback(it) }
                     (wanted - playbackClaims).forEach { playAudioOf(it) }
                 }
@@ -429,7 +458,8 @@ internal class RustMatrixRtcMediaSession(
 
     private suspend fun pollReceiveStatsOnce() {
         // The members we play are the members with a microphone: opening their audio is what found out.
-        val streams = streamsToPoll(composedTiles.value.filterNot { it.memberId == localMemberId }, playbackClaims.toSet())
+        val withMicrophone = playbackClaims.filter { it.kind == MatrixRtcStreamKind.MICROPHONE }.mapTo(mutableSetOf()) { it.memberId }
+        val streams = streamsToPoll(composedTiles.value.filterNot { it.memberId == localMemberId }, withMicrophone)
         if (streams.isEmpty()) {
             _receiveStats.value = emptyMap()
             streamsWithoutStats.clear()
@@ -486,6 +516,7 @@ internal class RustMatrixRtcMediaSession(
     private suspend fun handleInternally(event: MatrixRtcCallEvent) {
         when (event) {
             is MatrixRtcCallEvent.StreamStarted -> reopenStream(event.memberId, event.kind)
+            is MatrixRtcCallEvent.StreamStopped -> closeStream(event.memberId, event.kind)
             // Both directions of the transition are logged, and at warn: the difference between a
             // quiet call and a broken one has to survive the log level being turned down, and a
             // failure that clears on its own is a rotation delay rather than a bug - which is only
@@ -529,42 +560,67 @@ internal class RustMatrixRtcMediaSession(
      */
     private suspend fun reopenStream(memberId: String, kind: MatrixRtcStreamKind) {
         when (kind) {
-            MatrixRtcStreamKind.MICROPHONE -> if (playbackClaims.contains(memberId)) {
-                Timber.i("MatrixRTC: reopening the audio of $memberId on its new track")
-                audioPlayback.stop(memberId)
-                playbackClaims.remove(memberId)
-                playAudioOf(memberId)
+            MatrixRtcStreamKind.MICROPHONE -> MatrixRtcStreamRef(memberId, kind).let { ref ->
+                if (playbackClaims.contains(ref)) {
+                    Timber.i("MatrixRTC: reopening the audio of $memberId on its new track")
+                    audioPlayback.stop(ref)
+                    playbackClaims.remove(ref)
+                    playAudioOf(ref)
+                }
+            }
+            // Not only a replaced track: a share's audio can start after its tile is up, with no roster push to say
+            // so, and this is then the only word of it.
+            MatrixRtcStreamKind.SCREEN_SHARE_AUDIO -> MatrixRtcStreamRef(memberId, kind).let { ref ->
+                if (ref in wantedPlayback) {
+                    Timber.i("MatrixRTC: the screen share of $memberId has audio, playing it")
+                    audioPlayback.stop(ref)
+                    playbackClaims.remove(ref)
+                    playAudioOf(ref)
+                }
             }
             MatrixRtcStreamKind.CAMERA, MatrixRtcStreamKind.SCREEN_SHARE -> trackReplacements[MatrixRtcStreamRef(memberId, kind)]?.let {
                 Timber.i("MatrixRTC: reopening the $kind of $memberId on its new track")
                 it.update { generation -> generation + 1 }
             }
-            MatrixRtcStreamKind.SCREEN_SHARE_AUDIO, MatrixRtcStreamKind.DATA -> Unit
+            MatrixRtcStreamKind.DATA -> Unit
         }
     }
 
-    private suspend fun playAudioOf(memberId: String) {
+    /**
+     * A share's audio that stopped is let go, so that the next one - the sharer turning it back on, or a new share -
+     * is opened afresh. A voice is not: its member's tile says when it is gone.
+     */
+    private fun closeStream(memberId: String, kind: MatrixRtcStreamKind) {
+        if (kind != MatrixRtcStreamKind.SCREEN_SHARE_AUDIO) return
+        val ref = MatrixRtcStreamRef(memberId, kind)
+        if (playbackClaims.remove(ref)) audioPlayback.stop(ref)
+    }
+
+    private suspend fun playAudioOf(ref: MatrixRtcStreamRef) {
+        val memberId = ref.memberId
+        val isVoice = ref.kind == MatrixRtcStreamKind.MICROPHONE
         // Claiming before opening the stream, not after: two callers that both got past a check on
         // the playback map would each end up with a reader and an AudioTrack on the same member,
         // playing their audio twice and slightly out of step.
-        if (!playbackClaims.add(memberId)) return
+        if (!playbackClaims.add(ref)) return
         val stream = withContext(ffiDispatcher) {
-            runCatchingExceptions { mediaSession.audioStream(memberId, FfiStreamKind.MICROPHONE) }
-                .onFailure { Timber.w(it, "MatrixRTC: cannot open audio stream for $memberId") }
+            runCatchingExceptions { mediaSession.audioStream(memberId, ref.kind.map()) }
+                .onFailure { Timber.w(it, "MatrixRTC: cannot open the ${ref.kind} audio stream for $memberId") }
                 .getOrNull()
         }
         if (stream == null) {
             // Released, so the next roster push tries again. Said once: a member the SFU relays to
             // everyone else but whose microphone never reaches our roster used to look exactly like a
             // quiet participant, and took a side-by-side with Element Call to find.
-            playbackClaims.remove(memberId)
-            if (membersWithoutMicrophone.add(memberId)) {
+            playbackClaims.remove(ref)
+            // A share without audio is the ordinary case and says nothing.
+            if (isVoice && membersWithoutMicrophone.add(memberId)) {
                 Timber.w("MatrixRTC: $memberId publishes no microphone stream, so they cannot be heard here and are drawn as muted")
             }
             return
         }
-        membersWithoutMicrophone.remove(memberId)
-        audioPlayback.start(memberId, stream)
+        if (isVoice) membersWithoutMicrophone.remove(memberId)
+        audioPlayback.start(ref, stream, gain = playbackGainOf(ref))
     }
 
     override suspend fun setVideoConstraints(
@@ -787,7 +843,7 @@ internal class RustMatrixRtcMediaSession(
                 }
                 setScreenShareMuted(muted = false)
                 Timber.i("MatrixRTC: sharing the screen at ${width}x$height, ${format.framesPerSecond} fps, up to ${bitrate / 1000} kbit/s")
-                if (format.sharesDeviceAudio) startScreenShareAudio()
+                if (format.sharesDeviceAudio) startScreenShareAudio(format.audioBitrate)
             } else {
                 // Capture first here, unlike the camera, which mutes the transport first so a peer is
                 // never shown a frozen picture. Unpublishing is not a state a peer can be shown - the
@@ -830,7 +886,7 @@ internal class RustMatrixRtcMediaSession(
      * Never a reason for the share to fail: on a device or in a state that cannot capture playback, the screen is
      * shared without it and the log says why.
      */
-    private suspend fun startScreenShareAudio() {
+    private suspend fun startScreenShareAudio(audioBitrate: Int) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Timber.i("MatrixRTC: this Android version cannot capture playback, sharing the screen without audio")
             return
@@ -855,6 +911,9 @@ internal class RustMatrixRtcMediaSession(
                         simulcast = false,
                         muted = false,
                         videoCodec = FfiVideoCodecPreference.AUTO,
+                        // Music, not speech: the microphone's defaults are 48 kbit/s in one channel, silence left
+                        // out and redundancy on. This track alone asks for something else; see ScreenAudioEncoding.
+                        audioEncoding = ScreenAudioEncoding.of(audioBitrate),
                     )
                 )
             }.onFailure { Timber.w(it, "MatrixRTC: could not publish the screen share's audio, sharing the screen without it") }.getOrNull()
@@ -959,8 +1018,19 @@ internal fun streamsToPoll(composed: Collection<MatrixRtcTileId>, withMicrophone
     return (tiles + microphones).distinct()
 }
 
-/** Whose audio we try to play: every remote person tile in the order. Whether they have a microphone, opening it tells us. */
-internal fun playbackCandidates(order: List<MatrixRtcTileRef>, localMemberId: String): Set<String> =
+/**
+ * What we try to play: the voice of every remote person tile in the order and the audio of every remote screen share
+ * tile. Whether they have a microphone, or the share any audio, opening it tells us.
+ */
+internal fun playbackCandidates(order: List<MatrixRtcTileRef>, localMemberId: String): Set<MatrixRtcStreamRef> =
     order
-        .filter { it.id.kind == MatrixRtcTileKind.PERSON && it.id.memberId != localMemberId }
-        .mapTo(mutableSetOf()) { it.id.memberId }
+        .filter { it.id.memberId != localMemberId }
+        .mapTo(mutableSetOf()) {
+            MatrixRtcStreamRef(
+                memberId = it.id.memberId,
+                kind = when (it.id.kind) {
+                    MatrixRtcTileKind.PERSON -> MatrixRtcStreamKind.MICROPHONE
+                    MatrixRtcTileKind.SCREEN_SHARE -> MatrixRtcStreamKind.SCREEN_SHARE_AUDIO
+                },
+            )
+        }

@@ -365,6 +365,7 @@ fun ElementCallScreen(
             null -> Unit
         }
     }
+    state.volumeTile?.let { ElementCallTileVolumeSheet(state = state, tile = it) }
     when (state.presentedSheet) {
         ElementCallSheet.MORE -> ElementCallMoreSheet(state = state)
         ElementCallSheet.REACTIONS -> ElementCallReactionPicker(state = state)

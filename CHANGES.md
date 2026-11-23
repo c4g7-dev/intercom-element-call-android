@@ -14,6 +14,19 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 _Nothing yet._
 
+## 0.1.2-intercom.2 - 2026-11-23
+
+- Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.1`, InterCom's build of the fork
+  c4g7-dev/intercom-matrix-rust-rtc, resolved from the local Maven repository. A host resolves it the same way, or
+  builds with `-PmatrixRtcLocalVersion`. arm64-v8a only (README, "The core").
+- `ElementCallPreferencesStore` gains `playbackVolumes`, with a default that keeps none; a store of the host's own
+  overrides it to keep them. `MatrixRtcScreenShareOptions` gains `audioBitrate`.
+- `ElementCallController` gains `setPlaybackVolume`, and `MatrixRtcMediaSession` `setPlaybackVolumes` (a no-op by
+  default), for a host with its own RTC client.
+- A remote `SCREEN_SHARE_AUDIO` stream is played. A share's own audio is published as stereo Opus at 160 kbit/s
+  without DTX or RED.
+- A long press on a remote tile opens its volume sheet.
+
 ## 0.1.2-intercom.1 - 2026-11-22
 
 The InterCom fork, on top of 0.1.2 (README, "InterCom changes").

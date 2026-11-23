@@ -10,6 +10,8 @@ package io.element.android.call.api
 import io.element.android.call.api.audio.CallAudioDevice
 import io.element.android.call.api.rtc.MatrixRtcDetailWindow
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReaction
 import io.element.android.call.api.rtc.MatrixRtcReactionKind
 import io.element.android.call.api.rtc.MatrixRtcScreenCaptureToken
@@ -126,6 +128,11 @@ interface ElementCallController {
 
     /** How the stage arranges its tiles, at once. */
     fun setStageLayout(layout: ElementCallStageLayout)
+
+    /**
+     * How loud [source] is played on this device, at once and in every later call. The default takes the entry away.
+     */
+    fun setPlaybackVolume(source: MatrixRtcPlaybackSource, volume: MatrixRtcPlaybackVolume)
 
     /**
      * What the Developer options sheet offers: [MatrixRtcVideoCodec.AUTO], then each codec this device can encode, in the core's

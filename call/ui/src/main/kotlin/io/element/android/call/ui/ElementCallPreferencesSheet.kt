@@ -90,6 +90,9 @@ internal fun ElementCallPreferencesContent(state: ElementCallScreenState, modifi
                 onRelease = { state.eventSink(ElementCallScreenEvent.PlaySoundEffectsVolumeSample) },
             )
         }
+        ElementCallSettingsSection(stringResource(R.string.element_call_preferences_volume)) {
+            ElementCallSettingsPlainRow(stringResource(R.string.element_call_preferences_volume_hint))
+        }
         ElementCallSettingsSection(stringResource(R.string.element_call_preferences_about)) {
             Column(modifier = Modifier.testTag(ElementCallTestTags.PREFERENCES_VERSION)) {
                 ElementCallSettingsPlainRow(stringResource(R.string.element_call_preferences_version, state.libraryVersion))

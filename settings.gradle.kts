@@ -35,13 +35,15 @@ dependencyResolutionManagement {
             metadataSources { gradleMetadata() }
             content { includeModule("org.matrix.rustcomponents", "sdk-android") }
         }
-        // A local build of the matrix-rust-rtc core, opt-in: publish it from matrix-rust-rtc with
-        // `./tools/rtc/build-rust-rtc`, then build here with -PmatrixRtcLocalVersion=0.0.0-local (docs/local_stack.md).
+        // InterCom: the core is the fork c4g7-dev/intercom-matrix-rust-rtc, which is on no public Maven repository. Build
+        // and publish it with that repository's scripts/build-intercom-android.sh; the version is `matrix_rtc` in
+        // gradle/libs.versions.toml. Only this one module is looked up in the local repository.
+        // -PmatrixRtcLocalVersion=0.0.0-local still selects another local build (docs/local_stack.md).
         if (matrixRtcLocalVersion != null) {
             logger.lifecycle("Note: resolving io.element.android:matrix-rtc-android $matrixRtcLocalVersion from mavenLocal")
-            mavenLocal {
-                content { includeModule("io.element.android", "matrix-rtc-android") }
-            }
+        }
+        mavenLocal {
+            content { includeModule("io.element.android", "matrix-rtc-android") }
         }
     }
     versionCatalogs {

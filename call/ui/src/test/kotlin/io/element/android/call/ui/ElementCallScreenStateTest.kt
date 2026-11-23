@@ -21,6 +21,8 @@ import io.element.android.call.api.ElementCallVersion
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcParticipant
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcReaction
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcStreamKind
@@ -495,6 +497,76 @@ class ElementCallScreenStateTest {
             assertThat(controller.preferences.value.stageLayout).isEqualTo(ElementCallStageLayout.EQUAL_GRID)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    /** A long press on somebody's tile opens its volume: a person's voice, or what their shared screen plays. */
+    @Test
+    fun `a tile's volume sheet changes what is kept for its user and source, and leaves with the tile`() = runTest {
+        val sharer = UserId("@sharer:example.org")
+        val controller = FakeElementCallController(
+            initialState = aConnectedSnapshot(
+                participants = listOf(
+                    aCameraParticipant(A_LOCAL_MEMBER_ID, isLocal = true, isCameraMuted = true),
+                    aSharingParticipant(A_REMOTE_MEMBER_ID, userId = sharer),
+                ),
+            ),
+        )
+        val voice = MatrixRtcPlaybackSource(sharer, MatrixRtcStreamKind.MICROPHONE)
+        val share = MatrixRtcPlaybackSource(sharer, MatrixRtcStreamKind.SCREEN_SHARE_AUDIO)
+
+        moleculeFlow(RecompositionMode.Immediate) { rememberElementCallScreenState(controller, aNavigator()) }.test {
+            val initial = awaitItem()
+            assertThat(initial.volumeTile).isNull()
+            // Our own tile has no volume: we do not hear ourselves.
+            initial.tiles.filter { it.isLocal }.forEach { initial.eventSink(ElementCallScreenEvent.ShowTileVolume(it.tileId)) }
+            initial.eventSink(ElementCallScreenEvent.ShowTileVolume("nobody"))
+            initial.eventSink(ElementCallScreenEvent.ShowTileVolume(A_REMOTE_MEMBER_ID))
+
+            val person = consumeItemsUntilPredicate { it.volumeTile != null }.last()
+            assertThat(person.volumeTile?.tileId).isEqualTo(A_REMOTE_MEMBER_ID)
+            assertThat(person.volumeTile?.playbackSource).isEqualTo(voice)
+            assertThat(person.playbackVolume(person.volumeTile!!)).isEqualTo(MatrixRtcPlaybackVolume.DEFAULT)
+            person.eventSink(ElementCallScreenEvent.SetPlaybackVolume(voice, MatrixRtcPlaybackVolume(volume = 1.5f)))
+            val louder = consumeItemsUntilPredicate { it.playbackVolumes.isNotEmpty() }.last()
+            assertThat(louder.playbackVolume(louder.volumeTile!!)).isEqualTo(MatrixRtcPlaybackVolume(volume = 1.5f))
+            assertThat(controller.preferences.value.playbackVolumes).containsExactly(voice, MatrixRtcPlaybackVolume(volume = 1.5f))
+
+            // The share is a tile of its own with a volume of its own.
+            louder.eventSink(ElementCallScreenEvent.ShowTileVolume("$A_REMOTE_MEMBER_ID#SCREEN_SHARE"))
+            val screen = consumeItemsUntilPredicate { it.volumeTile?.isScreenShare == true }.last()
+            assertThat(screen.volumeTile?.playbackSource).isEqualTo(share)
+            assertThat(screen.playbackVolume(screen.volumeTile!!)).isEqualTo(MatrixRtcPlaybackVolume.DEFAULT)
+            screen.eventSink(ElementCallScreenEvent.SetPlaybackVolume(share, MatrixRtcPlaybackVolume(isMuted = true)))
+            consumeItemsUntilPredicate { it.playbackVolumes.size == 2 }
+            assertThat(controller.preferences.value.playbackVolumes[share]).isEqualTo(MatrixRtcPlaybackVolume(isMuted = true))
+
+            // The share ends: its sheet goes with its tile.
+            controller.state.value = aConnectedSnapshot(
+                participants = listOf(
+                    aCameraParticipant(A_LOCAL_MEMBER_ID, isLocal = true, isCameraMuted = true),
+                    aCameraParticipant(A_REMOTE_MEMBER_ID, isLocal = false, isCameraMuted = true, userId = sharer),
+                ),
+            )
+            val ended = consumeItemsUntilPredicate { it.volumeTile == null }.last()
+            ended.eventSink(ElementCallScreenEvent.ShowTileVolume(A_REMOTE_MEMBER_ID))
+            consumeItemsUntilPredicate { it.volumeTile != null }.last().eventSink(ElementCallScreenEvent.DismissTileVolume)
+            consumeItemsUntilPredicate { it.volumeTile == null }
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a volume is shown as its percentage, with what it adds above 100 percent`() {
+        assertThat(MatrixRtcPlaybackVolume(volume = 0f).label()).isEqualTo("0%")
+        assertThat(MatrixRtcPlaybackVolume(volume = 0.4f).label()).isEqualTo("40%")
+        assertThat(MatrixRtcPlaybackVolume(volume = 1f).label()).isEqualTo("100%")
+        assertThat(MatrixRtcPlaybackVolume(volume = 1.5f).label()).isEqualTo("150% · +6 dB")
+        assertThat(MatrixRtcPlaybackVolume(volume = 1.8f).label()).isEqualTo("180% · +9.6 dB")
+        assertThat(MatrixRtcPlaybackVolume(volume = 2f).label()).isEqualTo("200% · +12 dB")
+        // A finger near 100 % means 100 %.
+        assertThat(snapToDefault(0.98f)).isEqualTo(1f)
+        assertThat(snapToDefault(1.02f)).isEqualTo(1f)
+        assertThat(snapToDefault(1.1f)).isEqualTo(1.1f)
     }
 
     @Test

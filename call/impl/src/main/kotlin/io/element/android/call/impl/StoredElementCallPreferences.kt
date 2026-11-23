@@ -11,6 +11,8 @@ import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallStageLayout
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
+import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
+import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
 import io.element.android.call.api.rtc.MatrixRtcScreenShareOptions
 import io.element.android.call.api.rtc.MatrixRtcVideoCodec
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +42,7 @@ internal class StoredElementCallPreferences(private val store: ElementCallPrefer
         videoCodec = store.videoCodec,
         screenShare = store.screenShare.normalized(),
         stageLayout = store.stageLayout,
+        playbackVolumes = store.playbackVolumes.mapValues { it.value.normalized() }.filterValues { !it.isDefault },
     )
 
     fun setShowsReactions(shows: Boolean) {
@@ -87,5 +90,19 @@ internal class StoredElementCallPreferences(private val store: ElementCallPrefer
         Timber.i("ElementCall: stage layout $layout")
         store.stageLayout = layout
         _value.update { it.copy(stageLayout = layout) }
+    }
+
+    /**
+     * Kept for [source] from here on, or forgotten when it is the default.
+     *
+     * @return every volume now kept, for whoever is playing.
+     */
+    fun setPlaybackVolume(source: MatrixRtcPlaybackSource, volume: MatrixRtcPlaybackVolume): Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume> {
+        val normalized = volume.normalized()
+        val volumes = _value.value.playbackVolumes.let { if (normalized.isDefault) it - source else it + (source to normalized) }
+        // Not logged per step: a slider being dragged says this many times a second.
+        store.playbackVolumes = volumes
+        _value.update { it.copy(playbackVolumes = volumes) }
+        return volumes
     }
 }
