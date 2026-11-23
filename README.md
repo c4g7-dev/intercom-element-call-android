@@ -8,10 +8,10 @@
 ## InterCom changes
 
 Branch `intercom`, based on the upstream tag `v0.1.2`; versions are `<upstream version>-intercom.<n>`. The artifacts
-are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.2`
+are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.3`
 into `~/.m2`, where the InterCom fork of Element X Android resolves them.
 
-The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.1`
+The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.2`
 from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/intercom-matrix-rust-rtc) (branch
 `intercom`, on `v0.5.0`). It is resolved from `~/.m2` too: build and publish it first with that repository's
 `scripts/build-intercom-android.sh` (arm64-v8a only). What it changes is under "The core" below.
@@ -44,7 +44,7 @@ from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/in
 
 ### The core
 
-`0.5.0-intercom.1` is matrix-rust-rtc `v0.5.0` with these differences, and no others:
+`0.5.0-intercom.2` is matrix-rust-rtc `v0.5.0` with these differences, and no others:
 
 - `FfiPublishOptions` gains `audioEncoding` (bitrate cap, stereo, DTX, RED), `null` by default. A track published
   without it, the microphone included, is published exactly as 0.5.0 does: LiveKit's defaults.
@@ -54,6 +54,7 @@ from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/in
 - For every call: the answer to the SFU's offer repeats `stereo=1` on the audio sections where the offer has it, so
   that a stereo track is decoded in stereo. An answer to an offer without one is unchanged.
 - Built for arm64-v8a only, on a developer's machine with Rust 1.100 (stable), not by upstream's release workflow.
+  From `0.5.0-intercom.2` the library has a soname and names no directory of that machine; the code is the same.
   Its exported symbols are those of the 0.5.0 library plus the metadata of the one new record.
 
 API additions a host sees: `MatrixRtcScreenShareOptions` (with `audioBitrate`), `ElementCallStageLayout`,

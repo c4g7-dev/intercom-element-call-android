@@ -14,6 +14,11 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 _Nothing yet._
 
+## 0.1.2-intercom.3 - 2026-11-23
+
+- Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.2`, the same code as `0.5.0-intercom.1` built so that
+  the library names no directory of the build machine. Nothing changes for a host but the version it resolves.
+
 ## 0.1.2-intercom.2 - 2026-11-23
 
 - Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.1`, InterCom's build of the fork
