@@ -7,7 +7,6 @@
 
 package io.element.android.call.impl.rtc
 
-import android.util.Log
 import io.element.android.call.api.rtc.MatrixRtcLogLevel
 import io.element.android.call.api.rtc.MatrixRtcLoggingConfiguration
 import io.element.android.call.impl.util.runCatchingExceptions
@@ -102,12 +101,13 @@ private fun logToHost(record: RtcLogRecord) {
     Timber.tag(MatrixRtcLoggingConfiguration.CORE_LOG_TAG).log(record.level.priority(), "${record.target}: ${record.message}")
 }
 
+// android.util.Log's priorities, which Timber takes; the class itself is not to be imported here (Konsist).
 private fun RtcLogLevel.priority(): Int = when (this) {
-    RtcLogLevel.ERROR -> Log.ERROR
-    RtcLogLevel.WARN -> Log.WARN
-    RtcLogLevel.INFO -> Log.INFO
-    RtcLogLevel.DEBUG -> Log.DEBUG
-    RtcLogLevel.TRACE -> Log.VERBOSE
+    RtcLogLevel.ERROR -> 6
+    RtcLogLevel.WARN -> 5
+    RtcLogLevel.INFO -> 4
+    RtcLogLevel.DEBUG -> 3
+    RtcLogLevel.TRACE -> 2
 }
 
 private fun MatrixRtcLogLevel.map(): RtcLogLevel = when (this) {

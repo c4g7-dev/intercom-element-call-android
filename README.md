@@ -8,10 +8,10 @@
 ## InterCom changes
 
 Branch `intercom`, based on the upstream tag `v0.1.2`; versions are `<upstream version>-intercom.<n>`. The artifacts
-are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.4`
+are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.5`
 into `~/.m2`, where the InterCom fork of Element X Android resolves them.
 
-The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.3`
+The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.4`
 from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/intercom-matrix-rust-rtc) (branch
 `intercom`, on `v0.5.0`). It is resolved from `~/.m2` too: build and publish it first with that repository's
 `scripts/build-intercom-android.sh` (arm64-v8a only). What it changes is under "The core" below.
@@ -47,7 +47,7 @@ from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/in
 
 ### The core
 
-`0.5.0-intercom.3` is matrix-rust-rtc `v0.5.0` with these differences, and no others:
+`0.5.0-intercom.4` is matrix-rust-rtc `v0.5.0` with these differences, and no others:
 
 - `FfiPublishOptions` gains `audioEncoding` (bitrate cap, stereo, DTX, RED), `null` by default. A track published
   without it, the microphone included, is published exactly as 0.5.0 does: LiveKit's defaults.
@@ -56,6 +56,10 @@ from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/in
 - A received `ScreenShareAudio` stream is handed over in two channels instead of one. Voices stay mono.
 - For every call: the answer to the SFU's offer repeats `stereo=1` on the audio sections where the offer has it, so
   that a stereo track is decoded in stereo. An answer to an offer without one is unchanged.
+- A room-state join publishes on the first advertised `livekit` transport that names a `livekit_service_url`
+  (token from `/sfu/get`), and on the first at all only when none does. Synapse lists an `m.livekit` SFU `url` first,
+  which the Rust SDK's bindings hand over as `livekit`, and its token needs MSC4195 `get_token`, which the bindings
+  lack: every call was given up as soon as its media connected (from `0.5.0-intercom.4`).
 - A DM call whose own media connection is given up ends as `ConnectionClosed` with its reason, which the call screen
   shows. Before, the leave the loss issues ended the DM lifecycle as `Left` first, and the screen closed without a
   word half a second after it opened (from `0.5.0-intercom.3`).

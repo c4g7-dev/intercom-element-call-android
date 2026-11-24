@@ -14,6 +14,12 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 _Nothing yet._
 
+## 0.1.2-intercom.5 - 2026-11-24
+
+- Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.4`. A room-state join publishes on an advertised
+  transport with a `livekit_service_url` when there is one, instead of an SFU `url` whose token needs MSC4195
+  `get_token`. Nothing changes for a host but the version it resolves.
+
 ## 0.1.2-intercom.4 - 2026-11-24
 
 - Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.3`. A DM call whose own media connection is given up
