@@ -21,7 +21,7 @@ compose_bom = "2026.08.00"
 # The matrix-rust-rtc core. InterCom: its own build of the fork c4g7-dev/intercom-matrix-rust-rtc, from the local
 # Maven repository, where that repository's scripts/build-intercom-android.sh publishes it (settings.gradle.kts).
 # -PmatrixRtcLocalVersion still overrides it.
-matrix_rtc = "0.5.0-intercom.2"
+matrix_rtc = "0.5.0-intercom.3"
 
 # Coroutines
 coroutines = "1.11.0"

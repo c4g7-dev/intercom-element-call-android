@@ -7,11 +7,13 @@
 
 package io.element.android.call.impl.rtc
 
+import android.util.Log
 import io.element.android.call.api.rtc.MatrixRtcLogLevel
 import io.element.android.call.api.rtc.MatrixRtcLoggingConfiguration
 import io.element.android.call.impl.util.runCatchingExceptions
 import org.matrix.rtc.MatrixRtc
 import org.matrix.rtc.RtcLogLevel
+import org.matrix.rtc.RtcLogRecord
 import org.matrix.rtc.RtcLogging
 import org.matrix.rtc.uniffiEnsureInitialized
 import timber.log.Timber
@@ -61,6 +63,26 @@ internal object MatrixRtcFfi {
     }
 
     private fun applyLogging(configuration: MatrixRtcLoggingConfiguration) {
+        if (configuration.writesToHostLog) {
+            // InterCom: through the host's Timber trees, so the core's account of a call reaches the app's log files
+            // (and logcat as the host sees fit), instead of logcat only, or nowhere in a release build.
+            runCatchingExceptions {
+                RtcLogging.init(
+                    level = configuration.logLevel.map(),
+                    filter = configuration.filter,
+                    alsoToLogcat = configuration.writesToLogcat,
+                    sink = ::logToHost,
+                )
+            }
+                .onSuccess {
+                    Timber.i(
+                        "MatrixRTC: core logging to the host log (tag \"${MatrixRtcLoggingConfiguration.CORE_LOG_TAG}\") at " +
+                            "${configuration.logLevel}, filter \"${configuration.filter}\", logcat too: ${configuration.writesToLogcat}"
+                    )
+                }
+                .onFailure { Timber.w(it, "MatrixRTC: could not initialise core logging") }
+            return
+        }
         if (!configuration.writesToLogcat) {
             Timber.i("MatrixRTC: core logging off, enable \"Print logs to logcat\" in developer settings")
             return
@@ -73,6 +95,19 @@ internal object MatrixRtcFfi {
             }
             .onFailure { Timber.w(it, "MatrixRTC: could not initialise core logging") }
     }
+}
+
+/** One core record into Timber, on the core's logging thread. */
+private fun logToHost(record: RtcLogRecord) {
+    Timber.tag(MatrixRtcLoggingConfiguration.CORE_LOG_TAG).log(record.level.priority(), "${record.target}: ${record.message}")
+}
+
+private fun RtcLogLevel.priority(): Int = when (this) {
+    RtcLogLevel.ERROR -> Log.ERROR
+    RtcLogLevel.WARN -> Log.WARN
+    RtcLogLevel.INFO -> Log.INFO
+    RtcLogLevel.DEBUG -> Log.DEBUG
+    RtcLogLevel.TRACE -> Log.VERBOSE
 }
 
 private fun MatrixRtcLogLevel.map(): RtcLogLevel = when (this) {

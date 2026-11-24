@@ -8,10 +8,10 @@
 ## InterCom changes
 
 Branch `intercom`, based on the upstream tag `v0.1.2`; versions are `<upstream version>-intercom.<n>`. The artifacts
-are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.3`
+are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.4`
 into `~/.m2`, where the InterCom fork of Element X Android resolves them.
 
-The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.2`
+The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.3`
 from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/intercom-matrix-rust-rtc) (branch
 `intercom`, on `v0.5.0`). It is resolved from `~/.m2` too: build and publish it first with that repository's
 `scripts/build-intercom-android.sh` (arm64-v8a only). What it changes is under "The core" below.
@@ -38,13 +38,16 @@ from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/in
   (about 8 for 1080 by 2400). The core keeps the resolution and drops frames when the uplink runs short.
 - **A share sheet.** The share button opens a sheet with "Share phone audio" (on by default), its quality, the
   resolution and the frame rate, kept for the next share, before the system's capture dialog.
+- **The core's log reaches the host's.** `MatrixRtcLoggingConfiguration.writesToHostLog` hands every record the core
+  keeps to Timber, tagged `matrix-rtc` and prefixed with its Rust module path, so that a release build has the core's
+  account of a call in its log files; before, the core logged to logcat or nowhere.
 - **Equal grid.** A second stage layout, chosen in Preferences and kept: every tile the same size, shared screens
   included and shown whole, as large as the stage allows for their number and its orientation; nothing is spotlit.
   A double tap still fills the stage with a tile.
 
 ### The core
 
-`0.5.0-intercom.2` is matrix-rust-rtc `v0.5.0` with these differences, and no others:
+`0.5.0-intercom.3` is matrix-rust-rtc `v0.5.0` with these differences, and no others:
 
 - `FfiPublishOptions` gains `audioEncoding` (bitrate cap, stereo, DTX, RED), `null` by default. A track published
   without it, the microphone included, is published exactly as 0.5.0 does: LiveKit's defaults.
@@ -53,6 +56,9 @@ from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/in
 - A received `ScreenShareAudio` stream is handed over in two channels instead of one. Voices stay mono.
 - For every call: the answer to the SFU's offer repeats `stereo=1` on the audio sections where the offer has it, so
   that a stereo track is decoded in stereo. An answer to an offer without one is unchanged.
+- A DM call whose own media connection is given up ends as `ConnectionClosed` with its reason, which the call screen
+  shows. Before, the leave the loss issues ended the DM lifecycle as `Left` first, and the screen closed without a
+  word half a second after it opened (from `0.5.0-intercom.3`).
 - Built for arm64-v8a only, on a developer's machine with Rust 1.100 (stable), not by upstream's release workflow.
   From `0.5.0-intercom.2` the library has a soname and names no directory of that machine; the code is the same.
   Its exported symbols are those of the 0.5.0 library plus the metadata of the one new record.

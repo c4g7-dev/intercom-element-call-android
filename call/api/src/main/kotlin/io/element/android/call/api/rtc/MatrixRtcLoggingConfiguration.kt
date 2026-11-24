@@ -18,19 +18,28 @@ package io.element.android.call.api.rtc
  *
  * @param logLevel baseline level, applied to every target with no override in [filter].
  * @param writesToLogcat when true, the core writes to logcat itself under the `matrix-rtc` tag
- * (`adb logcat -s matrix-rtc`), with the Rust module path prepended to each message. When false,
- * core logging stays off entirely.
+ * (`adb logcat -s matrix-rtc`), with the Rust module path prepended to each message. When false
+ * and [writesToHostLog] is false too, core logging stays off entirely.
  * @param filter `RUST_LOG` style per-target overrides, comma separated. Targets are Rust module
  * paths matched by prefix; the roots are `matrix_rtc_core`, `matrix_rtc_media`,
  * `matrix_rtc_livekit` and `matrix_rtc_ffi`, plus `livekit`, `libwebrtc` and `webrtc_sys` from the
  * SFU and WebRTC stacks.
+ * @param writesToHostLog InterCom: when true, every record the core keeps is also handed to Timber,
+ * tagged [CORE_LOG_TAG] and prefixed with its Rust module path, so that it reaches whatever the
+ * host plants: its log files, and a logcat tree that redacts what it prints. The records cross
+ * the FFI on a thread of the core's own, never on the media thread that logged them, and the
+ * core drops records rather than block when the host falls behind.
  */
 data class MatrixRtcLoggingConfiguration(
     val logLevel: MatrixRtcLogLevel,
     val writesToLogcat: Boolean,
     val filter: String = DEFAULT_FILTER,
+    val writesToHostLog: Boolean = false,
 ) {
     companion object {
+        /** The Timber tag of the core's records when [writesToHostLog] is on. */
+        const val CORE_LOG_TAG = "matrix-rtc"
+
         /**
          * Holds down the parts that log per frame, so that [logLevel] governs the two we actually
          * read: `matrix_rtc_core` for the membership projection and `matrix_rtc_ffi` for the

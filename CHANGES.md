@@ -14,6 +14,14 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 _Nothing yet._
 
+## 0.1.2-intercom.4 - 2026-11-24
+
+- Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.3`. A DM call whose own media connection is given up
+  (a refused token, an SFU that never answers) now ends as `MatrixRtcCallEnd.ConnectionClosed` with its reason, which
+  the call screen shows, instead of `Left`, which closed the screen without a word.
+- `MatrixRtcLoggingConfiguration` gains `writesToHostLog` (false by default): the core's records go to Timber, tagged
+  `MatrixRtcLoggingConfiguration.CORE_LOG_TAG` (`matrix-rtc`), and so to the host's log files and trees.
+
 ## 0.1.2-intercom.3 - 2026-11-23
 
 - Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.2`, the same code as `0.5.0-intercom.1` built so that
