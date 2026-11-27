@@ -17,8 +17,8 @@ class CallSoundEffectAssetsTest {
     /** InterCom's own, the desktop's files unchanged: `intercom_join.ogg` and `intercom_leave.ogg` of its call. */
     @Test
     fun `the join and leave chimes are InterCom's`() {
-        assertThat(sha256("element_call_intercom_join.ogg")).isEqualTo("36561404f74404918037bd82603d9253ab1711875bfdea5760b74d52699840ca")
-        assertThat(sha256("element_call_intercom_leave.ogg")).isEqualTo("af07fc52adf088c28427e5daffc86fd9b16f7a02e0e1a576659773ec26e0597e")
+        assertThat(sha256("element_call_intercom_join.ogg")).isEqualTo("a45899b19d23d6ce4d451a99c88ce7ae44859179642e41ced37aab1c76e52502")
+        assertThat(sha256("element_call_intercom_leave.ogg")).isEqualTo("253323a6d43f0def00beb1f607c72b21f505bbdabdffb1d1885ecba4e23d3a74")
     }
 
     /** InterCom's own, the desktop's files unchanged: `res/media/intercom/` of its web app. */

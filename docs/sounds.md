@@ -10,8 +10,8 @@ another product. `CallSoundEffectAssetsTest` holds their hashes too.
 
 | File in `call/impl/src/main/res/raw/` | Source | SHA-256 |
 | :--- | :--- | :--- |
-| `element_call_intercom_join.ogg` | intercom-element-call `src/sound/intercom_join.ogg` | `36561404f74404918037bd82603d9253ab1711875bfdea5760b74d52699840ca` |
-| `element_call_intercom_leave.ogg` | intercom-element-call `src/sound/intercom_leave.ogg` | `af07fc52adf088c28427e5daffc86fd9b16f7a02e0e1a576659773ec26e0597e` |
+| `element_call_intercom_join.ogg` | intercom-element-call `src/sound/intercom_join.ogg` | `a45899b19d23d6ce4d451a99c88ce7ae44859179642e41ced37aab1c76e52502` |
+| `element_call_intercom_leave.ogg` | intercom-element-call `src/sound/intercom_leave.ogg` | `253323a6d43f0def00beb1f607c72b21f505bbdabdffb1d1885ecba4e23d3a74` |
 | `element_call_intercom_ringback.ogg` | intercom-element-web `apps/web/res/media/intercom/ringback.ogg` | `1d8cc60f918eaab1e7be9825dc45df13f782baf91e6a58965407f644fe2232a7` |
 | `element_call_intercom_mute.ogg` | intercom-element-web `apps/web/res/media/intercom/mute.ogg` | `e108a4deb7369e2fd31c532a12f0dfafa2dea11e952cb2d5aa9dde2991df81a3` |
 | `element_call_intercom_unmute.ogg` | intercom-element-web `apps/web/res/media/intercom/unmute.ogg` | `50b8aca8e1bd74cf5dae0e06390c41c252d3b559afcbb811fbfd7bd1e843d247` |
