@@ -121,6 +121,13 @@ class FakeElementCallController(
         microphoneMutedCalls += muted
     }
 
+    /** Every value [setDeafened] was given, in order. */
+    val deafenedCalls = mutableListOf<Boolean>()
+
+    override fun setDeafened(deafened: Boolean) {
+        deafenedCalls += deafened
+    }
+
     override fun setCameraEnabled(enabled: Boolean) {
         cameraEnabledCalls += enabled
     }

@@ -20,6 +20,7 @@ import io.element.android.call.api.ElementCallOptions
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallRoomContext
 import io.element.android.call.api.ElementCallStageLayout
+import io.element.android.call.api.ElementCallVoiceSettings
 import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.analytics.NoOpElementCallAnalytics
 import io.element.android.call.api.rtc.MatrixRtcAudioLevel
@@ -608,7 +609,7 @@ class DefaultElementCallControllerTest {
     }
 
     @Test
-    fun `a ring that runs out plays the timeout sound, a hang-up plays none`() = runTest {
+    fun `a ring that runs out plays the timeout sound, a hang-up our own leave`() = runTest {
         val rtcClient = FakeMatrixRtcClient()
         val platform = FakeElementCallPlatform()
         val controller = createController(rtcClient = rtcClient, platform = platform, roomIsDm = true)
@@ -624,7 +625,70 @@ class DefaultElementCallControllerTest {
         runCurrent()
         controller.hangUp()
         runCurrent()
-        assertThat(platform.soundEffectRenderers.last().playedToEnd).isEmpty()
+        assertThat(platform.soundEffectRenderers.last().playedToEnd).containsExactly(CallSoundEffect.LEAVE)
+    }
+
+    @Test
+    fun `leaving plays one leave sound, and the others' leaves during the teardown none`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val controller = createController(rtcClient = rtcClient, platform = platform)
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        val session = rtcClient.lastCall?.lastMediaSession!!
+        val renderer = platform.soundEffectRenderers.single()
+        renderer.endSoundGate = CompletableDeferred()
+
+        controller.hangUp()
+        runCurrent()
+        session.emit(MatrixRtcCallEvent.ParticipantLeft(A_REMOTE_MEMBER_ID, participantCount = 1))
+        session.emit(MatrixRtcCallEvent.ParticipantLeft(ANOTHER_REMOTE_MEMBER_ID, participantCount = 0))
+        runCurrent()
+        renderer.endSoundGate!!.complete(Unit)
+        runCurrent()
+
+        assertThat(renderer.played).isEmpty()
+        assertThat(renderer.playedToEnd).containsExactly(CallSoundEffect.LEAVE)
+    }
+
+    @Test
+    fun `a DM call the other side ends plays their leave and not ours on top`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val controller = createController(rtcClient = rtcClient, platform = platform, roomIsDm = true)
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        val session = rtcClient.lastCall?.lastMediaSession!!
+        val renderer = platform.soundEffectRenderers.single()
+
+        platform.elapsedRealtimeMs = 10_000
+        session.emit(MatrixRtcCallEvent.ParticipantLeft(A_REMOTE_MEMBER_ID, participantCount = 1))
+        runCurrent()
+        platform.elapsedRealtimeMs = 10_300
+        rtcClient.lastCall!!.status.value = MatrixRtcCallStatus.Ended(MatrixRtcCallEnd.SlotClosed)
+        runCurrent()
+
+        assertThat(renderer.played).containsExactly(CallSoundEffect.LEAVE)
+        assertThat(renderer.playedToEnd).isEmpty()
+        assertThat(controller.state.value).isNull()
+    }
+
+    @Test
+    fun `a call that ends without anybody's leave heard plays ours once`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val controller = createController(rtcClient = rtcClient, platform = platform, roomIsDm = true)
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        val session = rtcClient.lastCall?.lastMediaSession!!
+
+        rtcClient.lastCall!!.status.value = MatrixRtcCallStatus.Ended(MatrixRtcCallEnd.SlotClosed)
+        session.emit(MatrixRtcCallEvent.ParticipantLeft(A_REMOTE_MEMBER_ID, participantCount = 1))
+        runCurrent()
+
+        val renderer = platform.soundEffectRenderers.single()
+        assertThat(renderer.played).isEmpty()
+        assertThat(renderer.playedToEnd).containsExactly(CallSoundEffect.LEAVE)
     }
 
     /** The end sound must not hand back the route, the focus and the service a new call has just taken. */
@@ -2351,6 +2415,135 @@ class DefaultElementCallControllerTest {
 
         assertThat(developer.state.value?.isTileStatsVisible).isTrue()
         assertThat(user.state.value?.isTileStatsVisible).isFalse()
+    }
+
+    @Test
+    fun `deafening silences the call and mutes, and undeafening puts the microphone back`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val store = FakeElementCallPreferencesStore()
+        val controller = createController(rtcClient = rtcClient, platform = platform, preferencesStore = store)
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        val session = rtcClient.lastCall?.lastMediaSession!!
+        // A call that joins hearing says so to the session once.
+        assertThat(session.playbackSilencedCalls).containsExactly(false)
+
+        controller.setDeafened(true)
+        runCurrent()
+        assertThat(controller.state.value?.isDeafened).isTrue()
+        assertThat(controller.state.value?.isMicrophoneMuted).isTrue()
+        assertThat(session.isMicrophoneMuted.value).isTrue()
+        assertThat(store.voiceState).isEqualTo(ElementCallVoiceSettings(isMicrophoneMuted = true, isDeafened = true))
+
+        controller.setDeafened(false)
+        runCurrent()
+        assertThat(controller.state.value?.isDeafened).isFalse()
+        assertThat(controller.state.value?.isMicrophoneMuted).isFalse()
+        assertThat(session.isMicrophoneMuted.value).isFalse()
+        assertThat(session.playbackSilencedCalls).containsExactly(false, true, false).inOrder()
+        assertThat(store.voiceState).isEqualTo(ElementCallVoiceSettings())
+        // One cue per tap, the user's own.
+        assertThat(platform.soundEffectRenderers.single().played).containsExactly(CallSoundEffect.DEAFEN, CallSoundEffect.UNDEAFEN).inOrder()
+    }
+
+    @Test
+    fun `undeafening leaves a microphone muted that was muted before, and unmuting while deafened undeafens`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val controller = createController(rtcClient = rtcClient, platform = platform)
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        val session = rtcClient.lastCall?.lastMediaSession!!
+
+        controller.setMicrophoneMuted(true)
+        controller.setDeafened(true)
+        controller.setDeafened(false)
+        runCurrent()
+        assertThat(controller.state.value?.isMicrophoneMuted).isTrue()
+        assertThat(controller.state.value?.isDeafened).isFalse()
+
+        controller.setDeafened(true)
+        controller.setMicrophoneMuted(false)
+        runCurrent()
+        assertThat(controller.state.value?.isMicrophoneMuted).isFalse()
+        assertThat(controller.state.value?.isDeafened).isFalse()
+        assertThat(session.playbackSilencedCalls.last()).isFalse()
+        assertThat(platform.soundEffectRenderers.single().played).containsExactly(
+            CallSoundEffect.MUTE,
+            CallSoundEffect.DEAFEN,
+            CallSoundEffect.UNDEAFEN,
+            CallSoundEffect.DEAFEN,
+            CallSoundEffect.UNDEAFEN,
+        ).inOrder()
+    }
+
+    @Test
+    fun `the next call joins muted and deafened as the last one was left, without a cue`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val store = FakeElementCallPreferencesStore(voiceState = ElementCallVoiceSettings(isMicrophoneMuted = true, isDeafened = true))
+        val controller = createController(rtcClient = rtcClient, platform = platform, preferencesStore = store)
+        // Shown from the request, before the permission is answered.
+        assertThat(controller.state.value?.isMicrophoneMuted).isTrue()
+        assertThat(controller.state.value?.isDeafened).isTrue()
+
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        val session = rtcClient.lastCall?.lastMediaSession!!
+        assertThat(session.isMicrophoneMuted.value).isTrue()
+        assertThat(session.playbackSilencedCalls).containsExactly(true)
+        assertThat(platform.soundEffectRenderers.single().played).isEmpty()
+
+        // Deafened before with the microphone on: undeafening returns to that.
+        controller.setDeafened(false)
+        runCurrent()
+        assertThat(controller.state.value?.isMicrophoneMuted).isFalse()
+        assertThat(session.isMicrophoneMuted.value).isFalse()
+    }
+
+    @Test
+    fun `a mute made while the call connects is kept, and makes no sound`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val store = FakeElementCallPreferencesStore()
+        val controller = createController(rtcClient = rtcClient, platform = platform, preferencesStore = store)
+
+        controller.setMicrophoneMuted(true)
+        runCurrent()
+        assertThat(store.voiceState.isMicrophoneMuted).isTrue()
+        assertThat(platform.soundEffectRenderers).isEmpty()
+
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        assertThat(rtcClient.lastCall?.lastMediaSession!!.isMicrophoneMuted.value).isTrue()
+    }
+
+    @Test
+    fun `deafened, joins, leaves and raised hands are silent, and sound again afterwards`() = runTest {
+        val rtcClient = FakeMatrixRtcClient()
+        val platform = FakeElementCallPlatform()
+        val controller = createController(rtcClient = rtcClient, platform = platform)
+        controller.setMicrophonePermissionGranted(true)
+        runCurrent()
+        val session = rtcClient.lastCall?.lastMediaSession!!
+        val renderer = platform.soundEffectRenderers.single()
+
+        controller.setDeafened(true)
+        runCurrent()
+        session.emit(MatrixRtcCallEvent.ParticipantJoined(A_REMOTE_MEMBER_ID, UserId("@bob:example.org"), participantCount = 2))
+        session.emit(MatrixRtcCallEvent.ParticipantJoined(ANOTHER_REMOTE_MEMBER_ID, UserId("@carol:example.org"), participantCount = 3))
+        session.emit(MatrixRtcCallEvent.HandRaised(A_REMOTE_MEMBER_ID))
+        session.emit(MatrixRtcCallEvent.ParticipantLeft(ANOTHER_REMOTE_MEMBER_ID, participantCount = 2))
+        runCurrent()
+        assertThat(renderer.played).containsExactly(CallSoundEffect.DEAFEN)
+
+        controller.setDeafened(false)
+        runCurrent()
+        // A change that was silent did not start the throttle either.
+        session.emit(MatrixRtcCallEvent.ParticipantLeft(A_REMOTE_MEMBER_ID, participantCount = 1))
+        runCurrent()
+        assertThat(renderer.played).containsExactly(CallSoundEffect.DEAFEN, CallSoundEffect.UNDEAFEN, CallSoundEffect.LEAVE).inOrder()
     }
 
     private fun TestScope.createController(

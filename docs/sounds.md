@@ -1,5 +1,28 @@
 # Call sounds
 
+## InterCom's own
+
+The join and leave chimes, the ringback of an outgoing call and the cues for the user's own mute, unmute, deafen and undeafen are InterCom's, the same
+files as the desktop app's, copied unchanged. They are not recordings: scripts work them out from sine waves
+(`scripts/intercom-sounds.py` in the Element Call fork for the chimes, `apps/desktop/intercom/gen-sounds.py` in the
+Element Web fork for the cues), and they are covered by the licence of the InterCom repositories. None is taken from
+another product. `CallSoundEffectAssetsTest` holds their hashes too.
+
+| File in `call/impl/src/main/res/raw/` | Source | SHA-256 |
+| :--- | :--- | :--- |
+| `element_call_intercom_join.ogg` | intercom-element-call `src/sound/intercom_join.ogg` | `36561404f74404918037bd82603d9253ab1711875bfdea5760b74d52699840ca` |
+| `element_call_intercom_leave.ogg` | intercom-element-call `src/sound/intercom_leave.ogg` | `af07fc52adf088c28427e5daffc86fd9b16f7a02e0e1a576659773ec26e0597e` |
+| `element_call_intercom_ringback.ogg` | intercom-element-web `apps/web/res/media/intercom/ringback.ogg` | `1d8cc60f918eaab1e7be9825dc45df13f782baf91e6a58965407f644fe2232a7` |
+| `element_call_intercom_mute.ogg` | intercom-element-web `apps/web/res/media/intercom/mute.ogg` | `e108a4deb7369e2fd31c532a12f0dfafa2dea11e952cb2d5aa9dde2991df81a3` |
+| `element_call_intercom_unmute.ogg` | intercom-element-web `apps/web/res/media/intercom/unmute.ogg` | `50b8aca8e1bd74cf5dae0e06390c41c252d3b559afcbb811fbfd7bd1e843d247` |
+| `element_call_intercom_deafen.ogg` | intercom-element-web `apps/web/res/media/intercom/deafen.ogg` | `28b72917fab79dc3121797d2a77ffc7a5d3fc56385ee913922f63d881fa74996` |
+| `element_call_intercom_undeafen.ogg` | intercom-element-web `apps/web/res/media/intercom/undeafen.ogg` | `a680e5e2d625cda49283df13693fe3a0d094eb93c225dc8de2a161db2576491e` |
+
+Element Call's own join, leave and ringback sounds (`element_call_join_call.mp3`, `element_call_left_call.mp3`,
+`element_call_ringtone.mp3`) are no longer in the library.
+
+## Element Call's
+
 Element Call web's own files, copied unchanged so a call sounds the same on every client in it (feature-hq spec 024
 R3, spec 009 R34, spec 030 R23 and R25, spec 037 R9).
 Do not re-encode them: the hashes are how a reviewer checks they still match web and iOS, and `CallSoundEffectAssetsTest`
@@ -7,10 +30,7 @@ fails if they drift.
 
 | File in `call/impl/src/main/res/raw/` | Source | SHA-256 |
 | :--- | :--- | :--- |
-| `element_call_join_call.mp3` | `element-call` `src/sound/join_call.mp3` at ea6f2952a | `2a5e12c8470f6602249577e6c783231d70e80784504bae419a299330bc5a53f8` |
-| `element_call_left_call.mp3` | `element-call` `src/sound/left_call.mp3` at ea6f2952a | `5f4c529262388c3cae87df5957e9607ac438cba2be08d1b84484adf73c137971` |
 | `element_call_raise_hand.mp3` | `element-call` `src/sound/raise_hand.mp3` at 25c4f14d | `0601948ad6e4937cc6bca126f0decb2218037f39f6f7dc99cee359efdb66212b` |
-| `element_call_ringtone.mp3` | `element-call` `src/sound/ringtone.mp3` at 956671eef | `f4528c08f5e362b9c5b3693a3349bd9224d32c586953e1d180e90c5414d626c4` |
 | `element_call_call_declined.mp3` | `element-call` `src/sound/call_declined.mp3` at 956671eef | `bb8d93337c6d8a391fbc7750ce5fb955413ba084183a76c22aba5016f8d0e06b` |
 | `element_call_call_timeout.mp3` | `element-call` `src/sound/call_timeout.mp3` at 956671eef | `c0aed0c09a85d580824847988e6868121c1329997cf8a3df88a42895adbf3ddd` |
 | `element_call_reaction_baduntss.mp3` | `element-call` `src/sound/reactions/baduntss.mp3` at eb44fd545 | `48c30e2259598e3de9880d95b1075fcb7aa35a9b41ab94447f22534dc3b3d1e0` |

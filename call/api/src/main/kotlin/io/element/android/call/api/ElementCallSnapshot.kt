@@ -103,6 +103,11 @@ data class ElementCallSnapshot(
     val ownTile: MatrixRtcTile? = null,
     /** Whether the microphone is muted, and before the media connects whether it will be published muted. */
     val isMicrophoneMuted: Boolean = false,
+    /**
+     * InterCom: whether the user has deafened themselves: nothing of the call is played here, neither voices nor a
+     * share's audio, and the microphone is muted with it. See [ElementCallController.setDeafened].
+     */
+    val isDeafened: Boolean = false,
     /** Whether we are publishing a test tone instead of the microphone. */
     val isAudioTestToneEnabled: Boolean = false,
     /**

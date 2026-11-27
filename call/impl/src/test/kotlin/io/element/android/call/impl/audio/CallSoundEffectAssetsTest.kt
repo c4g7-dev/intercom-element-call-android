@@ -12,16 +12,22 @@ import org.junit.Test
 import java.io.File
 import java.security.MessageDigest
 
-/** Web's files, unchanged: the hashes in docs/sounds.md, which iOS quotes too. */
+/** Web's files, unchanged: the hashes in docs/sounds.md, which iOS quotes too. InterCom's own are the desktop's, unchanged. */
 class CallSoundEffectAssetsTest {
+    /** InterCom's own, the desktop's files unchanged: `intercom_join.ogg` and `intercom_leave.ogg` of its call. */
     @Test
-    fun `the join sound is web's`() {
-        assertThat(sha256("element_call_join_call.mp3")).isEqualTo("2a5e12c8470f6602249577e6c783231d70e80784504bae419a299330bc5a53f8")
+    fun `the join and leave chimes are InterCom's`() {
+        assertThat(sha256("element_call_intercom_join.ogg")).isEqualTo("36561404f74404918037bd82603d9253ab1711875bfdea5760b74d52699840ca")
+        assertThat(sha256("element_call_intercom_leave.ogg")).isEqualTo("af07fc52adf088c28427e5daffc86fd9b16f7a02e0e1a576659773ec26e0597e")
     }
 
+    /** InterCom's own, the desktop's files unchanged: `res/media/intercom/` of its web app. */
     @Test
-    fun `the leave sound is web's`() {
-        assertThat(sha256("element_call_left_call.mp3")).isEqualTo("5f4c529262388c3cae87df5957e9607ac438cba2be08d1b84484adf73c137971")
+    fun `the mute and deafen cues are InterCom's`() {
+        assertThat(sha256("element_call_intercom_mute.ogg")).isEqualTo("e108a4deb7369e2fd31c532a12f0dfafa2dea11e952cb2d5aa9dde2991df81a3")
+        assertThat(sha256("element_call_intercom_unmute.ogg")).isEqualTo("50b8aca8e1bd74cf5dae0e06390c41c252d3b559afcbb811fbfd7bd1e843d247")
+        assertThat(sha256("element_call_intercom_deafen.ogg")).isEqualTo("28b72917fab79dc3121797d2a77ffc7a5d3fc56385ee913922f63d881fa74996")
+        assertThat(sha256("element_call_intercom_undeafen.ogg")).isEqualTo("a680e5e2d625cda49283df13693fe3a0d094eb93c225dc8de2a161db2576491e")
     }
 
     @Test
@@ -30,8 +36,8 @@ class CallSoundEffectAssetsTest {
     }
 
     @Test
-    fun `the ringback and the end sounds are web's`() {
-        assertThat(sha256("element_call_ringtone.mp3")).isEqualTo("f4528c08f5e362b9c5b3693a3349bd9224d32c586953e1d180e90c5414d626c4")
+    fun `the ringback is InterCom's and the end sounds are web's`() {
+        assertThat(sha256("element_call_intercom_ringback.ogg")).isEqualTo("1d8cc60f918eaab1e7be9825dc45df13f782baf91e6a58965407f644fe2232a7")
         assertThat(sha256("element_call_call_declined.mp3")).isEqualTo("bb8d93337c6d8a391fbc7750ce5fb955413ba084183a76c22aba5016f8d0e06b")
         assertThat(sha256("element_call_call_timeout.mp3")).isEqualTo("c0aed0c09a85d580824847988e6868121c1329997cf8a3df88a42895adbf3ddd")
     }

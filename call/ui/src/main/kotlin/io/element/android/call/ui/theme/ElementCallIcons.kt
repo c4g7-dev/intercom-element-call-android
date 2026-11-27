@@ -71,6 +71,9 @@ data class ElementCallIcons(
     val unavailable: ImageVector,
     /** A tile whose media is not arriving; turned where it is drawn. */
     val spinner: ImageVector,
+    /** InterCom: the deafen button while hearing, and while deafened. */
+    val deafenOff: ImageVector,
+    val deafenOn: ImageVector,
 ) {
     companion object {
         /** The bundled defaults. Resolved in composition, as vector resources are. */
@@ -105,6 +108,8 @@ data class ElementCallIcons(
             chevronRight = ImageVector.vectorResource(R.drawable.ic_element_call_chevron_right),
             unavailable = ImageVector.vectorResource(R.drawable.ic_element_call_close),
             spinner = ImageVector.vectorResource(R.drawable.ic_element_call_spinner),
+            deafenOff = ImageVector.vectorResource(R.drawable.ic_element_call_headphones_solid),
+            deafenOn = ImageVector.vectorResource(R.drawable.ic_element_call_intercom_headphones_off_solid),
         )
     }
 }

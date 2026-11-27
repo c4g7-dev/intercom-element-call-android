@@ -32,8 +32,23 @@ internal class JoinLeaveSoundPolicy(private val participantCap: Int) {
         isSilenced = true
     }
 
+    /**
+     * InterCom: whether the end of the call for us makes the leave sound: once, and not on top of the leave of the
+     * other side that ended it (a DM call ends when the other hangs up, and their leave has just been heard).
+     * Allowed after [silence], which holds back everyone else's while the call is taken down.
+     */
+    fun shouldPlayOwnLeave(atMs: Long): Boolean {
+        val last = lastPlayedAtMs[CallSoundEffect.LEAVE]
+        if (last != null && atMs - last < OWN_LEAVE_GAP_MS) return false
+        lastPlayedAtMs[CallSoundEffect.LEAVE] = atMs
+        return true
+    }
+
     companion object {
         /** Web's `THROTTLE_SOUND_EFFECT_MS`, counted from the last sound of the same kind starting. */
         const val THROTTLE_MS = 500L
+
+        /** InterCom: one leave sound for an end, whoever left first. */
+        const val OWN_LEAVE_GAP_MS = 2_000L
     }
 }

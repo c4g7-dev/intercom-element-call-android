@@ -683,7 +683,9 @@ private fun CallControlsBar(
                 if (state.isMicrophoneMuted) R.string.element_call_a11y_unmute_microphone else R.string.element_call_a11y_mute_microphone
             ),
             isActive = state.isMicrophoneMuted,
+            modifier = Modifier.testTag(ElementCallTestTags.MICROPHONE),
         )
+        DeafenButton(state)
         RoundCallButton(
             onClick = { state.eventSink(ElementCallScreenEvent.ToggleCamera) },
             icon = if (state.isCameraEnabled) ElementCallTheme.icons.cameraOn else ElementCallTheme.icons.cameraOff,
@@ -735,6 +737,21 @@ private fun CallControlsBar(
             tint = ElementCallTheme.colors.onOverlay,
         )
     }
+}
+
+/** InterCom: deafen beside the microphone, highlighted while on like the muted microphone. */
+@Composable
+private fun DeafenButton(state: ElementCallScreenState) {
+    val deafenedState = stringResource(R.string.element_call_a11y_deafened_state)
+    RoundCallButton(
+        onClick = { state.eventSink(ElementCallScreenEvent.ToggleDeafened) },
+        icon = if (state.isDeafened) ElementCallTheme.icons.deafenOn else ElementCallTheme.icons.deafenOff,
+        contentDescription = stringResource(if (state.isDeafened) R.string.element_call_a11y_undeafen else R.string.element_call_a11y_deafen),
+        isActive = state.isDeafened,
+        modifier = Modifier
+            .semantics { if (state.isDeafened) stateDescription = deafenedState }
+            .testTag(ElementCallTestTags.DEAFEN),
+    )
 }
 
 /** Shows the hand as requested, as our tile does; a second tap takes it back (034 C12). */

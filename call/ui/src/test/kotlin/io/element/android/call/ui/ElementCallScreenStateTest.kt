@@ -157,6 +157,26 @@ class ElementCallScreenStateTest {
         }
     }
 
+    @Test
+    fun `the deafen button shows the snapshot and asks for its opposite`() = runTest {
+        val controller = FakeElementCallController(initialState = aConnectedSnapshot())
+
+        moleculeFlow(RecompositionMode.Immediate) { rememberElementCallScreenState(controller, aNavigator()) }.test {
+            val hearing = awaitItem()
+            assertThat(hearing.isDeafened).isFalse()
+            hearing.eventSink(ElementCallScreenEvent.ToggleDeafened)
+            assertThat(controller.deafenedCalls).containsExactly(true)
+
+            controller.state.value = aConnectedSnapshot().copy(isMicrophoneMuted = true, isDeafened = true)
+            val deafened = expectMostRecentItem()
+            assertThat(deafened.isDeafened).isTrue()
+            assertThat(deafened.isMicrophoneMuted).isTrue()
+            deafened.eventSink(ElementCallScreenEvent.ToggleDeafened)
+            assertThat(controller.deafenedCalls).containsExactly(true, false).inOrder()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     /** Toggles flip what the snapshot says, so the screen never has to remember a state of its own. */
     @Test
     fun `toggling the microphone and the test tone ask for the opposite of the snapshot`() = runTest {

@@ -19,10 +19,17 @@ import kotlinx.coroutines.delay
 import timber.log.Timber
 
 internal enum class CallSoundEffect(@RawRes val resId: Int) {
-    JOIN(R.raw.element_call_join_call),
-    LEAVE(R.raw.element_call_left_call),
+    // InterCom: the join and leave chimes and the four cues below are InterCom's own, as on the desktop.
+    JOIN(R.raw.element_call_intercom_join),
+    LEAVE(R.raw.element_call_intercom_leave),
+    MUTE(R.raw.element_call_intercom_mute),
+    UNMUTE(R.raw.element_call_intercom_unmute),
+    DEAFEN(R.raw.element_call_intercom_deafen),
+    UNDEAFEN(R.raw.element_call_intercom_undeafen),
     RAISE_HAND(R.raw.element_call_raise_hand),
-    RINGBACK(R.raw.element_call_ringtone),
+
+    // InterCom: its own ringback too, one round of a loop.
+    RINGBACK(R.raw.element_call_intercom_ringback),
     DECLINED(R.raw.element_call_call_declined),
     TIMEOUT(R.raw.element_call_call_timeout),
 }

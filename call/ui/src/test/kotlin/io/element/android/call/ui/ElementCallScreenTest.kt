@@ -88,6 +88,25 @@ class ElementCallScreenTest : RobolectricTest() {
         )
     }
 
+    /** InterCom: deafen sits in the bar, labelled by what a tap does, and says "Deafened" while it is on. */
+    @Test
+    fun `the deafen button offers to deafen, and deafened to undeafen`() = runAndroidComposeUiTest<ComponentActivity> {
+        val events = EventsRecorder<ElementCallScreenEvent>()
+        var isDeafened by mutableStateOf(false)
+        setContent { ElementCallScreen(state = anElementCallScreenState(isMicrophoneMuted = isDeafened, isDeafened = isDeafened, eventSink = events)) }
+        waitForIdle()
+        events.clear()
+
+        onNodeWithTag(ElementCallTestTags.DEAFEN).assertIsDisplayed()
+        clickOnContentDescription(R.string.element_call_a11y_deafen)
+        isDeafened = true
+        waitForIdle()
+        onNodeWithTag(ElementCallTestTags.DEAFEN).assert(hasStateDescription(activity!!.getString(R.string.element_call_a11y_deafened_state)))
+        clickOnContentDescription(R.string.element_call_a11y_undeafen)
+
+        events.assertList(listOf(ElementCallScreenEvent.ToggleDeafened, ElementCallScreenEvent.ToggleDeafened))
+    }
+
     /** Offered from three people: tapped down it offers to raise, tapped up to lower (009 R4, R21). */
     @Test
     fun `the hand control is labelled by what it will do`() = runAndroidComposeUiTest<ComponentActivity> {

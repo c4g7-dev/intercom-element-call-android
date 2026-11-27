@@ -14,6 +14,22 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 _Nothing yet._
 
+## 0.1.2-intercom.6 - 2026-11-27
+
+- `ElementCallController` gains `setDeafened`, and `ElementCallSnapshot` `isDeafened`; a host with its own controller
+  implements the first. `setMicrophoneMuted(false)` while deafened also undeafens.
+- `ElementCallPreferencesStore` gains `voiceState` (`ElementCallVoiceSettings`: muted, deafened, and what the microphone
+  was before), with a default that keeps nothing; a store of the host's own overrides it for a call to join as the
+  last one was left. The library's own store keeps it.
+- `MatrixRtcMediaSession` gains `setPlaybackSilenced` (a no-op by default), for a host with its own RTC client.
+- `ElementCallIcons` gains `deafenOff` and `deafenOn`; a host that builds its own set names them.
+  `ElementCallScreenState` gains `isDeafened`, `ElementCallScreenEvent` `ToggleDeafened`.
+- The join and leave sounds are InterCom's own (`element_call_intercom_join.ogg`, `…_leave.ogg`), and the user's own
+  mute, unmute, deafen and undeafen play a cue; the ringback is InterCom's too (`element_call_intercom_ringback.ogg`).
+  `element_call_join_call.mp3`, `element_call_left_call.mp3` and `element_call_ringtone.mp3` are gone.
+- A call that ends without a sound of its own (declined, unanswered) now plays the leave sound once, to its end,
+  before the call's audio is released: `onCallEnded` reaches the host that much later, as after a decline.
+
 ## 0.1.2-intercom.5 - 2026-11-24
 
 - Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.4`. A room-state join publishes on an advertised

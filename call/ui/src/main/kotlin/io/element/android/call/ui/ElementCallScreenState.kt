@@ -57,6 +57,8 @@ data class ElementCallScreenState(
      */
     val frameEncryption: ImmutableMap<String, MatrixRtcFrameEncryptionState>,
     val isMicrophoneMuted: Boolean,
+    /** InterCom: deafened, nothing of the call is played and the microphone is muted. */
+    val isDeafened: Boolean,
     /** Whether we are publishing a test tone instead of the microphone. */
     val isAudioTestToneEnabled: Boolean,
     /** Everywhere call audio could come out of, best candidate first. Updates as devices come and go. */

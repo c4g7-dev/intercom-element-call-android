@@ -6,6 +6,9 @@
   -->
 <resources>
     <!-- Strings of the InterCom fork, English only: they are not in the element-call Localazy project. -->
+    <string name="element_call_a11y_deafen">Deafen</string>
+    <string name="element_call_a11y_undeafen">Undeafen</string>
+    <string name="element_call_a11y_deafened_state">Deafened</string>
     <string name="element_call_screen_share_options_title">Share screen</string>
     <string name="element_call_screen_share_options_audio">Share phone audio</string>
     <string name="element_call_screen_share_options_audio_description">Others hear what this phone plays: music, videos and games. Apps that do not allow recording, and calls, stay silent.</string>

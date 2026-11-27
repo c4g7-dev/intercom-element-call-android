@@ -21,6 +21,7 @@ import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallRoomContextProvider
 import io.element.android.call.api.ElementCallSnapshot
 import io.element.android.call.api.ElementCallStageLayout
+import io.element.android.call.api.ElementCallVoiceSettings
 import io.element.android.call.api.ElementCallWindowRect
 import io.element.android.call.api.analytics.ElementCallAnalytics
 import io.element.android.call.api.audio.AudioFocus
@@ -64,6 +65,7 @@ import io.element.android.call.impl.audio.CallSoundEffectRenderer
 import io.element.android.call.impl.audio.GENERIC_REACTION_SOUND
 import io.element.android.call.impl.audio.JoinLeaveSoundPolicy
 import io.element.android.call.impl.audio.RaisedHandSoundPolicy
+import io.element.android.call.impl.audio.voiceCue
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
@@ -118,7 +120,11 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Everything that mutates goes through [mutex] on [scope], so callers can fire and forget from any
  * thread and the UI only ever sees whole snapshots.
+ *
+ * InterCom: upstream keeps this class at detekt's size limit; the fork's few lines (deafen, the leave sound) go over
+ * it and are not worth restructuring upstream's class for, hence the suppression.
  */
+@Suppress("LargeClass")
 internal class DefaultElementCallController(
     private val scope: CoroutineScope,
     private val platform: ElementCallPlatform,
@@ -365,8 +371,12 @@ internal class DefaultElementCallController(
                     return@withLock
                 }
                 Timber.i("ElementCall: call requested for ${callData.roomId}")
+                // InterCom: the microphone and deafen as the last call left them.
+                val voice = ownVoice.atStart()
                 _state.value = ElementCallSnapshot(
                     callData = callData,
+                    isMicrophoneMuted = voice.isMicrophoneMuted,
+                    isDeafened = voice.isDeafened,
                     connection = ElementCallConnection.RequestingPermission,
                     isScreenShareAvailable = options.isScreenSharingEnabled,
                     // What the call will join with, not what is capturing - nothing is, yet. The
@@ -505,14 +515,24 @@ internal class DefaultElementCallController(
 
     override fun setMicrophoneMuted(muted: Boolean) {
         // Muting reaches the transport as well as capture, so it suspends.
-        scope.launch {
-            // Recorded on the snapshot whether or not there is a call yet: before there is one this
-            // is the only place the intent lives, and runCall publishes the microphone in that state
-            // rather than unmuting the user who muted themselves while it connected. Once the call is
-            // up the observer hands the same value straight back.
-            updateState { it.copy(isMicrophoneMuted = muted) }
-            call?.setMicrophoneMuted(muted)
-        }
+        scope.launch { ownVoice.change({ _state.value }, { it.withMicrophoneMuted(muted) }, ::applyVoice) }
+    }
+
+    override fun setDeafened(deafened: Boolean) {
+        scope.launch { ownVoice.change({ _state.value }, { it.withDeafened(deafened) }, ::applyVoice) }
+    }
+
+    private val ownVoice = OwnVoice(storedPreferences)
+
+    /** InterCom: the user's own change of microphone or deafen, shown, said with its cue, and carried to the call. */
+    private suspend fun applyVoice(before: ElementCallVoiceSettings, after: ElementCallVoiceSettings) {
+        // On the snapshot whether or not there is a call yet: before there is one this is the only place the intent
+        // lives, and runCall publishes the microphone in that state. Once the call is up the observer hands it back.
+        updateState { it.copy(isMicrophoneMuted = after.isMicrophoneMuted, isDeafened = after.isDeafened) }
+        // The user's own cue, deafened or not. Silent before the join, where the call has no sounds yet.
+        voiceCue(before, after)?.let { soundEffectRenderer?.play(it) }
+        if (after.isDeafened != before.isDeafened) call?.setPlaybackSilenced(after.isDeafened)
+        if (after.isMicrophoneMuted != before.isMicrophoneMuted) call?.setMicrophoneMuted(after.isMicrophoneMuted)
     }
 
     override fun setHandRaised(raised: Boolean) {
@@ -810,6 +830,8 @@ internal class DefaultElementCallController(
         }
         call = connected
         connected.setPlaybackVolumes(preferences.value.playbackVolumes)
+        // InterCom: deafened from the last call, or while this one connected.
+        connected.setPlaybackSilenced(_state.value?.isDeafened == true)
         connected.setComposedTiles(composedTiles)
         detailWindow?.let { connected.setDetailWindow(it) }
         rankingThreshold?.let { connected.setRankingThreshold(it) }
@@ -984,7 +1006,8 @@ internal class DefaultElementCallController(
         // Read on arrival: a change applies to the next reaction and leaves those already scheduled alone (037 R15).
         // Hidden reactions play no sound, whatever the sound switch holds (043 R7).
         val shows = preferences.value.showsReactions
-        val playsSound = shows && preferences.value.playsReactionSounds
+        // InterCom: deafened, nothing of the call is heard, its effects included.
+        val playsSound = shows && preferences.value.playsReactionSounds && _state.value?.isDeafened != true
         Timber.i("ElementCall: ${event.memberId} reacted ${event.name.ifEmpty { "(no name)" }}: shown $shows, sound $playsSound")
         if (!shows) return
         val snapshot = _state.value ?: return
@@ -1012,7 +1035,9 @@ internal class DefaultElementCallController(
 
     /** One line per announced change, played or not, so a rageshake shows how often a membership lapses and returns. */
     private fun playJoinLeaveSound(sound: CallSoundEffect, memberId: String, participantCount: Int) {
-        val plays = joinLeaveSoundPolicy?.shouldPlay(sound, participantCount, platform.elapsedRealtimeMs()) == true
+        // InterCom: deafened, only the user's own cues are heard. Asked first, so that a silent change does not throttle.
+        val plays = _state.value?.isDeafened != true &&
+            joinLeaveSoundPolicy?.shouldPlay(sound, participantCount, platform.elapsedRealtimeMs()) == true
         val change = if (sound == CallSoundEffect.JOIN) "joined" else "left"
         Timber.i("ElementCall: $memberId $change, $participantCount in the call: ${if (plays) "playing" else "silent"}")
         if (plays) soundEffectRenderer?.play(sound)
@@ -1020,7 +1045,7 @@ internal class DefaultElementCallController(
 
     private fun playRaisedHandSound(memberId: String) {
         val isOneToOne = _state.value?.isOneToOne == true
-        val plays = raisedHandSoundPolicy?.shouldPlay(isOneToOne, platform.elapsedRealtimeMs()) == true
+        val plays = _state.value?.isDeafened != true && raisedHandSoundPolicy?.shouldPlay(isOneToOne, platform.elapsedRealtimeMs()) == true
         Timber.i("ElementCall: $memberId raised a hand: ${if (plays) "playing" else "silent"}")
         if (plays) soundEffectRenderer?.play(CallSoundEffect.RAISE_HAND)
     }
@@ -1046,6 +1071,7 @@ internal class DefaultElementCallController(
         val leavingCall: MatrixRtcMediaSession?
         val endedCallData: ElementCallData?
         val endingSoundEffectRenderer: CallSoundEffectRenderer?
+        val endingJoinLeaveSoundPolicy: JoinLeaveSoundPolicy?
         mutex.withLock {
             if (_state.value == null && callJob == null) return
             Timber.i("ElementCall: ending call (leave=$leave)")
@@ -1072,6 +1098,7 @@ internal class DefaultElementCallController(
             rtcRoom = null
             rtcCall = null
             call = null
+            endingJoinLeaveSoundPolicy = joinLeaveSoundPolicy
             joinLeaveSoundPolicy = null
             raisedHandSoundPolicy = null
             soundEffectRenderer?.stopLoop()
@@ -1100,7 +1127,7 @@ internal class DefaultElementCallController(
         leavingRoom?.shutdown()
 
         // The screen has closed already; the sound plays to its end before the call's audio goes (030 R25).
-        coreEnd?.endSound()?.let { endingSoundEffectRenderer?.playToEnd(it) }
+        endSoundOf(coreEnd, endingJoinLeaveSoundPolicy, platform.elapsedRealtimeMs())?.let { endingSoundEffectRenderer?.playToEnd(it) }
         endingSoundEffectRenderer?.release()
         val isNextCallRunning = mutex.withLock { _state.value != null }
         // A call started while the sound played holds the route, the focus and the service now.
@@ -1162,6 +1189,13 @@ internal class DefaultElementCallController(
 }
 
 private data class VideoStreamKey(val memberId: String, val kind: MatrixRtcStreamKind)
+
+/**
+ * InterCom: an end without a sound of its own is us leaving, said once: not again when the other side's leave, which
+ * ended a DM call, has just been heard. Everyone else's are held back from the moment the call ends.
+ */
+private fun endSoundOf(coreEnd: MatrixRtcCallEnd?, policy: JoinLeaveSoundPolicy?, nowMs: Long): CallSoundEffect? =
+    coreEnd?.endSound() ?: CallSoundEffect.LEAVE.takeIf { policy?.shouldPlayOwnLeave(nowMs) == true }
 
 private fun MatrixRtcCallEnd.endSound(): CallSoundEffect? = when (this) {
     MatrixRtcCallEnd.Declined -> CallSoundEffect.DECLINED

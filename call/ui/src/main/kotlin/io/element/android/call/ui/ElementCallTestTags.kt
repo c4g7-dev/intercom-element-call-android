@@ -29,6 +29,10 @@ object ElementCallTestTags {
     /** The top bar's settings button, which opens the settings menu (feature-hq 043 R1). */
     const val SETTINGS = "element_call_settings"
 
+    /** InterCom: the microphone and the deafen buttons of the control bar. */
+    const val MICROPHONE = "element_call_microphone"
+    const val DEAFEN = "element_call_deafen"
+
     /** The settings menu's Preferences item and the sheet it opens (feature-hq 037, 043), named as iOS names them. */
     const val PREFERENCES = "element_call_preferences"
     const val PREFERENCES_SHEET = "element_call_preferences_sheet"

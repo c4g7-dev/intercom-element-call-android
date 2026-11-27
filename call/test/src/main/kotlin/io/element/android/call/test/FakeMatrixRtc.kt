@@ -405,6 +405,13 @@ class FakeMatrixRtcMediaSession(
         playbackVolumeCalls += volumes
     }
 
+    /** Every value [setPlaybackSilenced] was given, in order. */
+    val playbackSilencedCalls = mutableListOf<Boolean>()
+
+    override fun setPlaybackSilenced(silenced: Boolean) {
+        playbackSilencedCalls += silenced
+    }
+
     override suspend fun setScreenShareEnabled(
         enabled: Boolean,
         token: MatrixRtcScreenCaptureToken?,

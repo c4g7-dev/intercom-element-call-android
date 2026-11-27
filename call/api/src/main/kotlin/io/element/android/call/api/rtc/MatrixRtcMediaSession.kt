@@ -238,6 +238,14 @@ interface MatrixRtcMediaSession : AutoCloseable {
     }
 
     /**
+     * InterCom: silences everything this session plays, voices and the audio of shares alike, whatever their own
+     * volumes are, until it is taken back. The volumes of [setPlaybackVolumes] are kept and apply again afterwards.
+     */
+    fun setPlaybackSilenced(silenced: Boolean) {
+        // Nothing to silence for a session that plays nothing itself.
+    }
+
+    /**
      * Leave the transport. Does not leave the RTC session, see [MatrixRtcCall.leave].
      */
     suspend fun disconnect(): Result<Unit>

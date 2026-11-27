@@ -10,6 +10,7 @@ package io.element.android.call.impl
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallStageLayout
+import io.element.android.call.api.ElementCallVoiceSettings
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
 import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
@@ -44,6 +45,14 @@ internal class StoredElementCallPreferences(private val store: ElementCallPrefer
         stageLayout = store.stageLayout,
         playbackVolumes = store.playbackVolumes.mapValues { it.value.normalized() }.filterValues { !it.isDefault },
     )
+
+    /** InterCom: the microphone and deafen as the user left them, read at each call's start. */
+    fun voiceState(): ElementCallVoiceSettings = store.voiceState.normalized()
+
+    fun setVoiceState(state: ElementCallVoiceSettings) {
+        Timber.i("ElementCall: microphone ${if (state.isMicrophoneMuted) "muted" else "on"}, ${if (state.isDeafened) "deafened" else "hearing"}, kept")
+        store.voiceState = state
+    }
 
     fun setShowsReactions(shows: Boolean) {
         Timber.i("ElementCall: reactions ${if (shows) "shown" else "hidden"}")

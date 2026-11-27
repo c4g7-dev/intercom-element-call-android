@@ -378,6 +378,14 @@ open class ElementCallScreenStatePreviewParam : PreviewParameterProvider<Element
                 videoFrames = mapOf(A_REMOTE_MEMBER_ID to emptyFlow()),
                 isStageChromeVisible = false,
             ),
+            // InterCom: deafened, which mutes too. Last, so that the screenshots before it keep their numbers.
+            anElementCallScreenState(
+                connection = ElementCallConnection.Connected,
+                memberCount = 2,
+                participants = listOf(aLocalParticipant(isMuted = true), aRemoteParticipant()),
+                isMicrophoneMuted = true,
+                isDeafened = true,
+            ),
         )
 }
 
@@ -392,6 +400,7 @@ fun anElementCallScreenState(
     activeSpeakerIds: Set<String> = emptySet(),
     handRaisedIds: Set<String> = emptySet(),
     isMicrophoneMuted: Boolean = false,
+    isDeafened: Boolean = false,
     isAudioTestToneEnabled: Boolean = false,
     audioDevices: List<CallAudioDevice> = listOf(AN_EARPIECE, A_SPEAKER),
     selectedAudioDevice: CallAudioDevice? = AN_EARPIECE,
@@ -449,6 +458,7 @@ fun anElementCallScreenState(
     receiveStats = receiveStats.toImmutableMap(),
     frameEncryption = frameEncryption.toImmutableMap(),
     isMicrophoneMuted = isMicrophoneMuted,
+    isDeafened = isDeafened,
     isAudioTestToneEnabled = isAudioTestToneEnabled,
     audioDevices = audioDevices.toImmutableList(),
     selectedAudioDevice = selectedAudioDevice,

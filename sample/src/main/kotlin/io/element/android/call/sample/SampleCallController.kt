@@ -132,6 +132,8 @@ class SampleCallController(private val context: Context, private val scope: Coro
     override fun setMicrophonePermissionGranted(granted: Boolean) = target.setMicrophonePermissionGranted(granted)
     override fun setCameraPermissionGranted(granted: Boolean) = target.setCameraPermissionGranted(granted)
     override fun setMicrophoneMuted(muted: Boolean) = target.setMicrophoneMuted(muted)
+
+    override fun setDeafened(deafened: Boolean) = target.setDeafened(deafened)
     override fun setCameraEnabled(enabled: Boolean) = target.setCameraEnabled(enabled)
     override fun switchCamera() = target.switchCamera()
     override fun setAudioTestToneEnabled(enabled: Boolean) = target.setAudioTestToneEnabled(enabled)

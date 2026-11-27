@@ -88,4 +88,44 @@ interface ElementCallPreferencesStore {
     var playbackVolumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume>
         get() = emptyMap()
         set(value) = Unit
+
+    /**
+     * InterCom: the microphone and deafen as the user left them, which the next call joins with. An implementation
+     * that keeps nothing starts every call unmuted and hearing.
+     */
+    var voiceState: ElementCallVoiceSettings
+        get() = ElementCallVoiceSettings()
+        set(value) = Unit
+}
+
+/**
+ * InterCom: the user's own microphone and deafen, as one state: deafened is always muted, and remembers what the
+ * microphone was before so that undeafening puts it back.
+ */
+data class ElementCallVoiceSettings(
+    val isMicrophoneMuted: Boolean = false,
+    val isDeafened: Boolean = false,
+    /** While deafened: whether the microphone was muted before, which is what undeafening returns to. */
+    val wasMutedBeforeDeafen: Boolean = false,
+) {
+    /** As read from a store: deafened without muted does not exist. */
+    fun normalized(): ElementCallVoiceSettings = when {
+        isDeafened && !isMicrophoneMuted -> copy(isMicrophoneMuted = true)
+        !isDeafened && wasMutedBeforeDeafen -> copy(wasMutedBeforeDeafen = false)
+        else -> this
+    }
+
+    /** The microphone button: unmuting while deafened undeafens too. */
+    fun withMicrophoneMuted(muted: Boolean): ElementCallVoiceSettings = when {
+        muted == isMicrophoneMuted -> this
+        muted -> copy(isMicrophoneMuted = true)
+        else -> ElementCallVoiceSettings()
+    }
+
+    /** The deafen button: on, it mutes; off, the microphone is as it was before. */
+    fun withDeafened(deafened: Boolean): ElementCallVoiceSettings = when {
+        deafened == isDeafened -> this
+        deafened -> ElementCallVoiceSettings(isMicrophoneMuted = true, isDeafened = true, wasMutedBeforeDeafen = isMicrophoneMuted)
+        else -> ElementCallVoiceSettings(isMicrophoneMuted = wasMutedBeforeDeafen)
+    }
 }

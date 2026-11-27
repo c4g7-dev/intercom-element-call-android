@@ -127,7 +127,11 @@ class SampleElementCallController(
     }
 
     override fun setMicrophoneMuted(muted: Boolean) = update {
-        it.copy(isMicrophoneMuted = muted, ownTile = it.ownTile?.copy(isMicrophoneMuted = muted))
+        it.copy(isMicrophoneMuted = muted, isDeafened = it.isDeafened && muted, ownTile = it.ownTile?.copy(isMicrophoneMuted = muted))
+    }
+
+    override fun setDeafened(deafened: Boolean) = update {
+        it.copy(isMicrophoneMuted = deafened, isDeafened = deafened, ownTile = it.ownTile?.copy(isMicrophoneMuted = deafened))
     }
 
     override fun setCameraEnabled(enabled: Boolean) = update {

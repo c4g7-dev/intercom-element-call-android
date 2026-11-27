@@ -62,4 +62,22 @@ class JoinLeaveSoundPolicyTest {
         assertThat(policy.shouldPlay(CallSoundEffect.JOIN, participantCount = 2, atMs = 0)).isFalse()
         assertThat(policy.shouldPlay(CallSoundEffect.LEAVE, participantCount = 1, atMs = 10_000)).isFalse()
     }
+
+    @Test
+    fun `our own leave is one sound, not a second after another's that has just played`() {
+        val policy = JoinLeaveSoundPolicy(participantCap = 8)
+        assertThat(policy.shouldPlay(CallSoundEffect.LEAVE, participantCount = 1, atMs = 1_000)).isTrue()
+        policy.silence()
+        assertThat(policy.shouldPlayOwnLeave(atMs = 1_000 + JoinLeaveSoundPolicy.OWN_LEAVE_GAP_MS - 1)).isFalse()
+        assertThat(policy.shouldPlayOwnLeave(atMs = 1_000 + JoinLeaveSoundPolicy.OWN_LEAVE_GAP_MS)).isTrue()
+        assertThat(policy.shouldPlayOwnLeave(atMs = 1_000 + JoinLeaveSoundPolicy.OWN_LEAVE_GAP_MS + 1)).isFalse()
+    }
+
+    @Test
+    fun `our own leave plays after silence, and the others' do not`() {
+        val policy = JoinLeaveSoundPolicy(participantCap = 8)
+        policy.silence()
+        assertThat(policy.shouldPlay(CallSoundEffect.LEAVE, participantCount = 1, atMs = 0)).isFalse()
+        assertThat(policy.shouldPlayOwnLeave(atMs = 0)).isTrue()
+    }
 }

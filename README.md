@@ -8,7 +8,7 @@
 ## InterCom changes
 
 Branch `intercom`, based on the upstream tag `v0.1.2`; versions are `<upstream version>-intercom.<n>`. The artifacts
-are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.5`
+are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.6`
 into `~/.m2`, where the InterCom fork of Element X Android resolves them.
 
 The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.4`
@@ -16,6 +16,19 @@ from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/in
 `intercom`, on `v0.5.0`). It is resolved from `~/.m2` too: build and publish it first with that repository's
 `scripts/build-intercom-android.sh` (arm64-v8a only). What it changes is under "The core" below.
 
+- **Deafen.** A deafen button beside the microphone: nothing of the call is played on this phone, neither voices nor
+  the audio of shared screens, and the microphone is muted. Undeafening brings the sound back and puts the microphone
+  back to what it was before; unmuting while deafened undeafens too, as on the desktop.
+- **Mute and deafen are kept from call to call.** A call joins with the microphone and deafen as the last one left
+  them (`ElementCallPreferencesStore.voiceState`), from the first screen on, before the microphone permission.
+- **InterCom's own cues.** The join and leave chimes are InterCom's (the desktop's files, in place of Element
+  Call's), so is the ringback of an outgoing call, and muting, unmuting, deafening and undeafening have a short cue
+  each. Joins and leaves of others keep
+  the library's rules (one per kind in half a second, none above the host's participant cap); while deafened only the
+  user's own cues play: no chimes, no raised hand, no reaction sounds. Leaving a call, or a call
+  ending, plays the leave chime once: not again within two seconds of the other side's leave that ended it, and
+  nobody else's leave is heard while the call is taken down. The files are not recordings, see
+  [docs/sounds.md](docs/sounds.md).
 - **Phone audio in a screen share, at music quality.** While the screen is shared, what the phone plays (media, games,
   untagged playback) is captured with Android 10's playback capture on the same projection and published as a LiveKit
   `ScreenShareAudio` stream: 48 kHz stereo PCM into the core, no echo canceller, noise suppressor or gain control,

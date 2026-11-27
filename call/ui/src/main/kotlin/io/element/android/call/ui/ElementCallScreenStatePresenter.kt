@@ -299,6 +299,7 @@ fun rememberElementCallScreenState(
                 }
             }
             ElementCallScreenEvent.ToggleMicrophoneMuted -> controller.setMicrophoneMuted(current?.isMicrophoneMuted != true)
+            ElementCallScreenEvent.ToggleDeafened -> controller.setDeafened(current?.isDeafened != true)
             ElementCallScreenEvent.ToggleAudioTestTone -> controller.setAudioTestToneEnabled(current?.isAudioTestToneEnabled != true)
             is ElementCallScreenEvent.SelectAudioDevice -> controller.selectAudioDevice(event.device)
             ElementCallScreenEvent.Minimize -> {
@@ -460,6 +461,7 @@ private fun ElementCallSnapshot?.toState(
     receiveStats = this?.receiveStats ?: persistentMapOf(),
     frameEncryption = this?.frameEncryption ?: persistentMapOf(),
     isMicrophoneMuted = this?.isMicrophoneMuted == true,
+    isDeafened = this?.isDeafened == true,
     isAudioTestToneEnabled = this?.isAudioTestToneEnabled == true,
     audioDevices = this?.audioDevices ?: persistentListOf(),
     selectedAudioDevice = this?.selectedAudioDevice,

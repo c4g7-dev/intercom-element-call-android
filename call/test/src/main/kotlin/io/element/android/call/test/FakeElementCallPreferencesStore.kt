@@ -10,6 +10,7 @@ package io.element.android.call.test
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallStageLayout
+import io.element.android.call.api.ElementCallVoiceSettings
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
 import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
@@ -26,4 +27,5 @@ class FakeElementCallPreferencesStore(
     override var screenShare: MatrixRtcScreenShareOptions = ElementCallPreferences.DEFAULT.screenShare,
     override var stageLayout: ElementCallStageLayout = ElementCallPreferences.DEFAULT.stageLayout,
     override var playbackVolumes: Map<MatrixRtcPlaybackSource, MatrixRtcPlaybackVolume> = emptyMap(),
+    override var voiceState: ElementCallVoiceSettings = ElementCallVoiceSettings(),
 ) : ElementCallPreferencesStore

@@ -32,6 +32,9 @@ sealed interface ElementCallScreenEvent {
 
     data object ToggleMicrophoneMuted : ElementCallScreenEvent
 
+    /** InterCom: deafen, or undeafen, which puts the microphone back as it was. */
+    data object ToggleDeafened : ElementCallScreenEvent
+
     /** Start or stop the camera, asking for the permission first if we have never had it. */
     data object ToggleCamera : ElementCallScreenEvent
 

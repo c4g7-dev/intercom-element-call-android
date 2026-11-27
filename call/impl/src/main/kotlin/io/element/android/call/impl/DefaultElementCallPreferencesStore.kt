@@ -13,6 +13,7 @@ import androidx.core.content.edit
 import io.element.android.call.api.ElementCallPreferences
 import io.element.android.call.api.ElementCallPreferencesStore
 import io.element.android.call.api.ElementCallStageLayout
+import io.element.android.call.api.ElementCallVoiceSettings
 import io.element.android.call.api.rtc.MatrixRtcMembershipFormat
 import io.element.android.call.api.rtc.MatrixRtcPlaybackSource
 import io.element.android.call.api.rtc.MatrixRtcPlaybackVolume
@@ -72,6 +73,18 @@ internal class DefaultElementCallPreferencesStore(context: Context) : ElementCal
         get() = PlaybackVolumesCodec.decode(prefs.getStringSet(KEY_PLAYBACK_VOLUMES, null).orEmpty())
         set(value) = prefs.edit { putStringSet(KEY_PLAYBACK_VOLUMES, PlaybackVolumesCodec.encode(value)) }
 
+    override var voiceState: ElementCallVoiceSettings
+        get() = ElementCallVoiceSettings(
+            isMicrophoneMuted = prefs.getBoolean(KEY_MICROPHONE_MUTED, false),
+            isDeafened = prefs.getBoolean(KEY_DEAFENED, false),
+            wasMutedBeforeDeafen = prefs.getBoolean(KEY_MUTED_BEFORE_DEAFEN, false),
+        ).normalized()
+        set(value) = prefs.edit {
+            putBoolean(KEY_MICROPHONE_MUTED, value.isMicrophoneMuted)
+            putBoolean(KEY_DEAFENED, value.isDeafened)
+            putBoolean(KEY_MUTED_BEFORE_DEAFEN, value.wasMutedBeforeDeafen)
+        }
+
     /** By name; a name this version does not know reads as [default]. */
     private inline fun <reified T : Enum<T>> SharedPreferences.getEnum(key: String, default: T): T =
         getString(key, null)?.let { name -> enumValues<T>().firstOrNull { it.name == name } } ?: default
@@ -90,6 +103,9 @@ internal class DefaultElementCallPreferencesStore(context: Context) : ElementCal
         private const val KEY_STAGE_LAYOUT = "stage_layout"
         private const val KEY_SCREEN_SHARE_AUDIO_BITRATE = "screen_share_audio_bitrate"
         private const val KEY_PLAYBACK_VOLUMES = "playback_volumes"
+        private const val KEY_MICROPHONE_MUTED = "microphone_muted"
+        private const val KEY_DEAFENED = "deafened"
+        private const val KEY_MUTED_BEFORE_DEAFEN = "muted_before_deafen"
     }
 }
 

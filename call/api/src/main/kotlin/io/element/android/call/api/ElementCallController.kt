@@ -84,7 +84,18 @@ interface ElementCallController {
     /** Answer the camera permission request. A grant turns the camera on, since asking is what the user just did. */
     fun setCameraPermissionGranted(granted: Boolean)
 
+    /**
+     * InterCom: the state is kept from call to call, and the next call joins with it. Unmuting while deafened also
+     * undeafens: somebody who talks wants to hear the answer.
+     */
     fun setMicrophoneMuted(muted: Boolean)
+
+    /**
+     * InterCom: deafened, nothing of the call is played on this device (voices and the audio of shared screens) and
+     * the microphone is muted; undeafening brings the sound back and puts the microphone back to what it was before.
+     * Kept from call to call like the microphone's state. See [ElementCallSnapshot.isDeafened].
+     */
+    fun setDeafened(deafened: Boolean)
 
     fun setCameraEnabled(enabled: Boolean)
 

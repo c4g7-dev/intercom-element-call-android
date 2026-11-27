@@ -265,8 +265,21 @@ internal class RustMatrixRtcMediaSession(
         playbackClaims.forEach { audioPlayback.setGain(it, playbackGainOf(it)) }
     }
 
-    /** The gain [ref] plays with: its user's volume for that kind of stream, as sent when nothing was chosen. */
+    /** InterCom: deafened, see [setPlaybackSilenced]. */
+    @Volatile
+    private var isPlaybackSilenced = false
+
+    override fun setPlaybackSilenced(silenced: Boolean) {
+        isPlaybackSilenced = silenced
+        playbackClaims.forEach { audioPlayback.setGain(it, playbackGainOf(it)) }
+    }
+
+    /**
+     * The gain [ref] plays with: its user's volume for that kind of stream, as sent when nothing was chosen, and
+     * nothing at all while the user is deafened.
+     */
     private fun playbackGainOf(ref: MatrixRtcStreamRef): Float {
+        if (isPlaybackSilenced) return 0f
         val userId = _tiles.value.order.firstOrNull { it.id.memberId == ref.memberId }?.userId ?: return 1f
         return playbackVolumes.value[MatrixRtcPlaybackSource(userId, ref.kind)]?.gain ?: 1f
     }
