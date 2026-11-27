@@ -1,6 +1,7 @@
 > [!IMPORTANT]
-> **This is the InterCom fork of element-call-android**, the native call component of
-> [InterCom for Android](https://github.com/c4g7-dev/InterCom#android). It is not an Element product and is not
+> **This is the Lattice fork of element-call-android** (Lattice was called InterCom until November 2026, and the
+> names in the code still say so), the native call component of
+> [Lattice for Android](https://github.com/c4g7-dev/InterCom#android). It is not an Element product and is not
 > affiliated with, endorsed by or supported by Element. Please report problems with this fork at
 > <https://github.com/c4g7-dev/InterCom/issues>, not upstream. Below the "InterCom changes" section is the upstream
 > README, kept for reference.
@@ -8,14 +9,31 @@
 ## InterCom changes
 
 Branch `intercom`, based on the upstream tag `v0.1.2`; versions are `<upstream version>-intercom.<n>`. The artifacts
-are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.6`
+are not on Maven Central: `./gradlew publishToMavenLocal` puts `io.element.android:element-call-*:0.1.2-intercom.7`
 into `~/.m2`, where the InterCom fork of Element X Android resolves them.
 
-The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.4`
-from the fork [c4g7-dev/intercom-matrix-rust-rtc](https://github.com/c4g7-dev/intercom-matrix-rust-rtc) (branch
+The matrix-rust-rtc core is InterCom's own build as well, `io.element.android:matrix-rtc-android:0.5.0-intercom.5`
+from the fork [c4g7-dev/lattice-matrix-rust-rtc](https://github.com/c4g7-dev/lattice-matrix-rust-rtc) (branch
 `intercom`, on `v0.5.0`). It is resolved from `~/.m2` too: build and publish it first with that repository's
 `scripts/build-intercom-android.sh` (arm64-v8a only). What it changes is under "The core" below.
 
+- **Alone in a DM call, the call goes on for a while.** With `ElementCallOptions.aloneTimeout` set (the app sets
+  five minutes), a DM call is joined with the core's `stayWhenAlone`, and when the other person has left it the
+  call stays up: `ElementCallSnapshot.aloneDeadlineElapsedMs` says when it will be left, the screen counts down to
+  it ("You're alone in this call · disconnecting in 4:59") with *Stay*, which starts the time over
+  (`ElementCallController.stayInCall`), and *Leave now*. Somebody coming back ends the wait. When it runs out the
+  call is left and the host is told `ElementCallEndReason.ALONE`. Alone is being the only member of a connected
+  call, or sharing it only with other devices of one's own; a call that still rings is not alone, and a room's
+  call is never left this way. Without the option nothing changes: the core ends the call as before.
+- **The camera's button has four states.** On and off as before; *blocked* when the permission was refused in this
+  call, and *no device* on a phone without a camera, both drawn as the camera with a small red no-entry badge
+  (`ElementCallCameraState`). A blocked camera's tap asks again, and where Android no longer asks the existing
+  dialog leads to the settings; back from the settings with the permission, the button is off again at once
+  (`refreshCameraPermission`). A refused microphone still ends the call with a way to the settings: a call without
+  a microphone would need another kind of foreground service, which is not done here.
+- **Lattice's animations** (`LatticeMotion.kt`): the icon's ring of dots while a call connects, above "Connecting…",
+  and three moving bars in a name tag in place of the microphone while that person speaks. Both stand still with
+  Android's animations turned off.
 - **Deafen.** A deafen button beside the microphone: nothing of the call is played on this phone, neither voices nor
   the audio of shared screens, and the microphone is muted. Undeafening brings the sound back and puts the microphone
   back to what it was before; unmuting while deafened undeafens too, as on the desktop.

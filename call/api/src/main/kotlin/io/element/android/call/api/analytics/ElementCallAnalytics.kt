@@ -129,6 +129,8 @@ private val ElementCallEndReason.wireValue: String
         ElementCallEndReason.UNANSWERED -> "unanswered"
         ElementCallEndReason.RING_NOT_SENT -> "ringNotSent"
         ElementCallEndReason.OTHERS_LEFT -> "othersLeft"
+        // InterCom: not in the spec; the reporter itself counts such an end as a leave of ours.
+        ElementCallEndReason.ALONE -> "alone"
         ElementCallEndReason.EMPTY -> "empty"
         ElementCallEndReason.SLOT_CLOSED -> "slotClosed"
         ElementCallEndReason.CONNECTION_CLOSED -> "connectionLost"

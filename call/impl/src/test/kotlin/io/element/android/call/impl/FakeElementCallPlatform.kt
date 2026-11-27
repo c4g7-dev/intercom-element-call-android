@@ -24,6 +24,7 @@ internal class FakeElementCallPlatform(
      */
     private val onStartForegroundService: (isProjecting: Boolean) -> Unit = {},
     private val isCameraSwitchAvailable: Boolean = true,
+    private val hasCamera: Boolean = true,
     var reactionSpread: Duration = Duration.ZERO,
     private val reactionCatalogue: List<MatrixRtcReactionKind> = emptyList(),
 ) : ElementCallPlatform {
@@ -55,6 +56,8 @@ internal class FakeElementCallPlatform(
     }
 
     override fun isCameraSwitchAvailable(): Boolean = isCameraSwitchAvailable
+
+    override fun hasCamera(): Boolean = hasCamera
 
     /** Every renderer handed out, one per call. */
     val soundEffectRenderers = mutableListOf<FakeCallSoundEffectRenderer>()

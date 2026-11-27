@@ -35,7 +35,7 @@ dependencyResolutionManagement {
             metadataSources { gradleMetadata() }
             content { includeModule("org.matrix.rustcomponents", "sdk-android") }
         }
-        // InterCom: the core is the fork c4g7-dev/intercom-matrix-rust-rtc, which is on no public Maven repository. Build
+        // InterCom: the core is the fork c4g7-dev/lattice-matrix-rust-rtc, which is on no public Maven repository. Build
         // and publish it with that repository's scripts/build-intercom-android.sh; the version is `matrix_rtc` in
         // gradle/libs.versions.toml. Only this one module is looked up in the local repository.
         // -PmatrixRtcLocalVersion=0.0.0-local still selects another local build (docs/local_stack.md).

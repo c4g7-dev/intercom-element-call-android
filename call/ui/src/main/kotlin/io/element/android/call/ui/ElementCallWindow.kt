@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.round
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import io.element.android.call.api.ElementCallConnection
 import io.element.android.call.api.ElementCallController
 import io.element.android.call.api.ElementCallSnapshot
@@ -321,6 +322,12 @@ internal fun rememberCallPermissions(controller: ElementCallController, current:
         } else {
             cameraLauncher.launch(Manifest.permission.CAMERA)
         }
+    }
+
+    // InterCom: back from the system settings, a camera that was refused may be allowed now: the button says so at once.
+    LifecycleResumeEffect(current.isCameraPermissionRefused) {
+        if (current.isCameraPermissionRefused && context.isGranted(Manifest.permission.CAMERA)) controller.refreshCameraPermission(true)
+        onPauseOrDispose { }
     }
 
     return remember(controller) {

@@ -25,6 +25,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
@@ -42,6 +43,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
@@ -70,8 +72,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -339,6 +343,16 @@ fun ElementCallScreen(
                             controls(Modifier)
                         }
                     }
+                }
+                // InterCom: alone in a DM call, the wait and the two ways out of it, whatever chrome is shown.
+                val aloneDeadline = state.aloneDeadlineElapsedMs
+                if (aloneDeadline != null && fullscreen == null && !state.isLeavingForPictureInPicture) {
+                    AloneBanner(
+                        deadlineElapsedMs = aloneDeadline,
+                        onStay = { state.eventSink(ElementCallScreenEvent.StayInCall) },
+                        onLeave = { state.eventSink(ElementCallScreenEvent.HangUp) },
+                        modifier = Modifier.align(Alignment.Center),
+                    )
                 }
                 // Over the stage, under what sits at its top: the duration, or the fullscreen tile's exit (034 R35).
                 CallInterruptions(
@@ -642,7 +656,9 @@ private fun ScreenShareBanner(state: ElementCallScreenState, modifier: Modifier 
 @Composable
 private fun ConnectingPlaceholder(state: ElementCallScreenState) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            // Lattice: the icon's connecting animation for as long as the call is on its way.
+            if (state.connection.isOnItsWay()) LatticeConnecting()
             Text(
                 text = state.connection.label(),
                 style = ElementCallTheme.typography.headingMdBold,
@@ -686,15 +702,7 @@ private fun CallControlsBar(
             modifier = Modifier.testTag(ElementCallTestTags.MICROPHONE),
         )
         DeafenButton(state)
-        RoundCallButton(
-            onClick = { state.eventSink(ElementCallScreenEvent.ToggleCamera) },
-            icon = if (state.isCameraEnabled) ElementCallTheme.icons.cameraOn else ElementCallTheme.icons.cameraOff,
-            contentDescription = stringResource(
-                if (state.isCameraEnabled) R.string.element_call_a11y_turn_camera_off else R.string.element_call_a11y_turn_camera_on
-            ),
-            // Same reading as the mic: the highlighted button is the one that is switched off.
-            isActive = !state.isCameraEnabled,
-        )
+        CameraButton(state)
         AudioDeviceButton(state)
         when (val slot = state.barSlot) {
             ElementCallBarSlot.More -> RoundCallButton(
@@ -737,6 +745,37 @@ private fun CallControlsBar(
             tint = ElementCallTheme.colors.onOverlay,
         )
     }
+}
+
+/**
+ * InterCom: the camera in one of four states. On and off as upstream draws them; blocked and no device are the
+ * camera itself with a no-entry badge, so "cannot" does not look like "off". A blocked camera's tap asks again, and
+ * where Android no longer asks it leads to the settings; a camera that is not there does nothing and says why.
+ */
+@Composable
+private fun CameraButton(state: ElementCallScreenState) {
+    val cameraState = state.cameraState
+    RoundCallButton(
+        onClick = { state.eventSink(ElementCallScreenEvent.ToggleCamera) },
+        icon = when (cameraState) {
+            ElementCallCameraState.OFF -> ElementCallTheme.icons.cameraOff
+            ElementCallCameraState.ON,
+            ElementCallCameraState.BLOCKED,
+            ElementCallCameraState.NO_DEVICE -> ElementCallTheme.icons.cameraOn
+        },
+        contentDescription = stringResource(
+            when (cameraState) {
+                ElementCallCameraState.ON -> R.string.element_call_a11y_turn_camera_off
+                ElementCallCameraState.OFF -> R.string.element_call_a11y_turn_camera_on
+                ElementCallCameraState.BLOCKED -> R.string.element_call_a11y_camera_blocked
+                ElementCallCameraState.NO_DEVICE -> R.string.element_call_a11y_camera_no_device
+            }
+        ),
+        // Same reading as the mic: the highlighted button is the one that is switched off.
+        isActive = cameraState == ElementCallCameraState.OFF,
+        isUnavailable = cameraState == ElementCallCameraState.BLOCKED || cameraState == ElementCallCameraState.NO_DEVICE,
+        modifier = Modifier.testTag(ElementCallTestTags.CAMERA),
+    )
 }
 
 /** InterCom: deafen beside the microphone, highlighted while on like the muted microphone. */
@@ -832,13 +871,15 @@ private fun RoundCallButton(
     enabled: Boolean = true,
     background: Color? = null,
     tint: Color? = null,
+    /** InterCom: the device behind the button cannot be used: its glyph is faint and carries a no-entry badge. */
+    isUnavailable: Boolean = false,
 ) {
     val resolvedBackground = background
         // Darker than the pill it sits in, which is bgSubtleSecondary.
         ?: if (isActive && enabled) ElementCallTheme.colors.controlActiveBackground else ElementCallTheme.colors.bgCanvas
     val resolvedTint = when {
         // Resting, with a faint glyph: the theme has no disabled colour, and adding one would change a port every host fills.
-        !enabled -> ElementCallTheme.colors.iconSecondary.copy(alpha = DISABLED_ALPHA)
+        !enabled || isUnavailable -> ElementCallTheme.colors.iconSecondary.copy(alpha = DISABLED_ALPHA)
         tint != null -> tint
         isActive -> ElementCallTheme.colors.controlActiveContent
         else -> ElementCallTheme.colors.iconPrimary
@@ -858,13 +899,32 @@ private fun RoundCallButton(
             .background(resolvedBackground)
             .then(if (hasRing) Modifier.border(1.dp, ElementCallTheme.colors.borderControl, CircleShape) else Modifier),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = resolvedTint,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = resolvedTint,
+            )
+            if (isUnavailable) UnavailableBadge(Modifier.align(Alignment.BottomEnd).offset(x = 5.dp, y = 5.dp))
+        }
     }
 }
+
+/** InterCom: a small red disc with a white cross, on the corner of a device that cannot be used. */
+@Composable
+private fun UnavailableBadge(modifier: Modifier = Modifier) {
+    val disc = ElementCallTheme.colors.hangUp
+    val cross = ElementCallTheme.colors.onOverlay
+    Canvas(modifier.size(UNAVAILABLE_BADGE_SIZE)) {
+        drawCircle(disc)
+        val arm = size.minDimension * 0.2f
+        val stroke = size.minDimension * 0.14f
+        drawLine(cross, Offset(center.x - arm, center.y - arm), Offset(center.x + arm, center.y + arm), stroke, StrokeCap.Round)
+        drawLine(cross, Offset(center.x - arm, center.y + arm), Offset(center.x + arm, center.y - arm), stroke, StrokeCap.Round)
+    }
+}
+
+private val UNAVAILABLE_BADGE_SIZE = 13.dp
 
 /**
  * As the design has it. The bar holds at most five - microphone, camera, audio output, the slot, hang up; switching camera
@@ -885,6 +945,18 @@ private val PILL_PADDING = 8.dp
 
 /** Above and below the pill. */
 private val BAR_VERTICAL_PADDING = 14.dp
+
+/** The states before a call is connected, in which something is still expected to happen. */
+internal fun ElementCallConnection.isOnItsWay(): Boolean = when (this) {
+    ElementCallConnection.RequestingPermission,
+    ElementCallConnection.Joining,
+    ElementCallConnection.ConnectingMedia,
+    is ElementCallConnection.Calling -> true
+    is ElementCallConnection.RingNotSent,
+    ElementCallConnection.Connected,
+    is ElementCallConnection.Failed,
+    ElementCallConnection.Ended -> false
+}
 
 /** What the placeholder says about the connection while there is nobody to show. */
 @Composable

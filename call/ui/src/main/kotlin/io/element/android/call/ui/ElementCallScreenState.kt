@@ -28,6 +28,31 @@ import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * InterCom: the camera as its button shows it. On and off are the user's; the other two are why it cannot be turned
+ * on, drawn as the camera with a small no-entry badge, as the desktop app draws a device that is not there.
+ */
+enum class ElementCallCameraState {
+    ON,
+    OFF,
+
+    /** The permission was refused: a tap asks again where Android still asks, and leads to the settings where it does not. */
+    BLOCKED,
+
+    /** The device has no camera: the button says so and does nothing. */
+    NO_DEVICE,
+    ;
+
+    companion object {
+        fun of(hasCamera: Boolean, isPermissionRefused: Boolean, isPermissionGranted: Boolean, isEnabled: Boolean) = when {
+            !hasCamera -> NO_DEVICE
+            isEnabled -> ON
+            isPermissionRefused && !isPermissionGranted -> BLOCKED
+            else -> OFF
+        }
+    }
+}
+
 data class ElementCallScreenState(
     val connection: ElementCallConnection,
     /** A voice call rather than a video one, as the user asked for it: the icon beside "Calling…" (030 R14). */
@@ -78,6 +103,10 @@ data class ElementCallScreenState(
      * is concerned: tapping the button is what resolves either.
      */
     val isCameraPermissionGranted: Boolean,
+    /** InterCom: what the camera button shows and does, see [ElementCallCameraState]. */
+    val cameraState: ElementCallCameraState,
+    /** InterCom: when the call is left for being alone in it, on the elapsed-realtime clock; null while somebody else is here. */
+    val aloneDeadlineElapsedMs: Long?,
     /** Whether the host has turned screen sharing on. False, and the bar has no share button at all. */
     val isScreenShareAvailable: Boolean,
     /**

@@ -260,4 +260,18 @@ class FakeElementCallController(
         hangUpCount++
         membershipFormatsAtHangUp += preferences.value.membershipFormat
     }
+
+    var stayInCallCount = 0
+        private set
+
+    override fun stayInCall() {
+        stayInCallCount++
+    }
+
+    /** Every value [refreshCameraPermission] was given, in order. */
+    val cameraPermissionRefreshes = mutableListOf<Boolean>()
+
+    override fun refreshCameraPermission(granted: Boolean) {
+        cameraPermissionRefreshes += granted
+    }
 }

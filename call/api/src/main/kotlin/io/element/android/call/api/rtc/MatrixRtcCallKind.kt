@@ -22,8 +22,12 @@ sealed interface MatrixRtcCallKind {
     /**
      * A DM call: the core rings, follows the call and ends it, see [MatrixRtcCall.status]. With [ring], the
      * user chose to call; without one, they are answering a ring or joining a call in progress.
+     *
+     * InterCom: with [stayWhenAlone], the core does not end the call when the other person has left: it stays
+     * connected, alone, and whoever asked for that leaves it, see `ElementCallOptions.aloneTimeout`. A call found empty
+     * when it is joined still ends at once.
      */
-    data class Direct(val ring: MatrixRtcRing?) : MatrixRtcCallKind
+    data class Direct(val ring: MatrixRtcRing?, val stayWhenAlone: Boolean = false) : MatrixRtcCallKind
 }
 
 /**

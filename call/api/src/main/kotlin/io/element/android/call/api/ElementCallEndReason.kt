@@ -27,6 +27,12 @@ enum class ElementCallEndReason {
     /** Everyone else left a DM call. */
     OTHERS_LEFT,
 
+    /**
+     * InterCom: the other person left a DM call and did not come back within `ElementCallOptions.aloneTimeout`, so the
+     * call was left for the user. The host tells them why they are no longer in it.
+     */
+    ALONE,
+
     /** A DM call we answered or joined had nobody left in it. */
     EMPTY,
 

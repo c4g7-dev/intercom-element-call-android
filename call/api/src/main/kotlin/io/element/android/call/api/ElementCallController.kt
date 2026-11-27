@@ -224,4 +224,16 @@ interface ElementCallController {
 
     /** End the call and publish a leave membership. */
     fun hangUp()
+
+    /**
+     * InterCom: the user wants to stay in a call they are alone in: the countdown of
+     * [ElementCallSnapshot.aloneDeadlineElapsedMs] starts over. Nothing happens when none is running.
+     */
+    fun stayInCall()
+
+    /**
+     * InterCom: the camera permission as it is now, when it may have changed outside of a request: on coming back
+     * from the system settings. Unlike [setCameraPermissionGranted] it never turns the camera on.
+     */
+    fun refreshCameraPermission(granted: Boolean)
 }

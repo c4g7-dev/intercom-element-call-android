@@ -36,4 +36,9 @@
     <string name="element_call_tile_volume_mute_description">Only you stop hearing this. Everyone else hears it as before.</string>
     <string name="element_call_tile_volume_description">Changes only what you hear on this phone, and is remembered for the next call. Above 100% the sound is amplified, up to +12 dB, and held back where it would distort.</string>
     <string name="element_call_tile_volume_reset">Reset to 100%</string>
+    <string name="element_call_a11y_camera_blocked">Camera access blocked. Tap to open settings</string>
+    <string name="element_call_a11y_camera_no_device">No camera found</string>
+    <string name="element_call_alone_countdown">You\'re alone in this call · disconnecting in %1$s</string>
+    <string name="element_call_alone_stay">Stay</string>
+    <string name="element_call_alone_leave">Leave now</string>
 </resources>

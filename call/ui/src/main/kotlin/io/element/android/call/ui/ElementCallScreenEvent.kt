@@ -163,6 +163,9 @@ sealed interface ElementCallScreenEvent {
     data class SendReaction(val kind: MatrixRtcReactionKind) : ElementCallScreenEvent
 
     data object HangUp : ElementCallScreenEvent
+
+    /** InterCom: stay in a call we are alone in; the countdown to leaving it starts over. */
+    data object StayInCall : ElementCallScreenEvent
 }
 
 /** What the stage and the screen tell the presenter about the chrome (spec 014). Theirs alone, so not a host's to send. */

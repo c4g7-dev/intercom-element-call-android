@@ -33,6 +33,12 @@ object ElementCallTestTags {
     const val MICROPHONE = "element_call_microphone"
     const val DEAFEN = "element_call_deafen"
 
+    /** InterCom: the camera button, and the notice of being alone in a DM call with its two buttons. */
+    const val CAMERA = "element_call_camera"
+    const val ALONE_BANNER = "element_call_alone_banner"
+    const val ALONE_STAY = "element_call_alone_stay"
+    const val ALONE_LEAVE = "element_call_alone_leave"
+
     /** The settings menu's Preferences item and the sheet it opens (feature-hq 037, 043), named as iOS names them. */
     const val PREFERENCES = "element_call_preferences"
     const val PREFERENCES_SHEET = "element_call_preferences_sheet"

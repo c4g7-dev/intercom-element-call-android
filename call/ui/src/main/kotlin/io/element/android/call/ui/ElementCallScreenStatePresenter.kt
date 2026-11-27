@@ -183,8 +183,11 @@ fun rememberElementCallScreenState(
         when (event) {
             is ElementCallScreenEvent.SetMicrophonePermissionGranted -> controller.setMicrophonePermissionGranted(event.granted)
             is ElementCallScreenEvent.SetCameraPermissionGranted -> controller.setCameraPermissionGranted(event.granted)
+            ElementCallScreenEvent.StayInCall -> controller.stayInCall()
             ElementCallScreenEvent.ToggleCamera -> {
-                if (current?.isCameraPermissionGranted == true) {
+                if (current?.hasCamera == false) {
+                    // InterCom: no camera to turn on; the button says so.
+                } else if (current?.isCameraPermissionGranted == true) {
                     controller.setCameraEnabled(!current.isCameraEnabled)
                 } else {
                     // Asking is what resolves both "denied" and "never asked", and the controller
@@ -467,6 +470,13 @@ private fun ElementCallSnapshot?.toState(
     selectedAudioDevice = this?.selectedAudioDevice,
     isMicrophonePermissionGranted = this?.isMicrophonePermissionGranted == true,
     isCameraEnabled = this?.isCameraEnabled == true,
+    cameraState = ElementCallCameraState.of(
+        hasCamera = this?.hasCamera != false,
+        isPermissionRefused = this?.isCameraPermissionRefused == true,
+        isPermissionGranted = this?.isCameraPermissionGranted == true,
+        isEnabled = this?.isCameraEnabled == true,
+    ),
+    aloneDeadlineElapsedMs = this?.aloneDeadlineElapsedMs,
     isFrontCamera = this?.isFrontCamera != false,
     isCameraSwitchAvailable = this?.isCameraSwitchAvailable != false,
     isCameraPermissionGranted = this?.isCameraPermissionGranted == true,

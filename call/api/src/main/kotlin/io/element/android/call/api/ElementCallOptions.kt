@@ -54,6 +54,13 @@ data class ElementCallOptions(
      * format and the video codec (feature-hq 043 R4). Off, the choices already made still apply.
      */
     val isDeveloperModeEnabled: Boolean = false,
+    /**
+     * InterCom: how long a DM call goes on once the other person has left it, before it is left for the user: they
+     * are told so with a countdown ([ElementCallSnapshot.aloneDeadlineElapsedMs]) and may stay, which starts it over,
+     * or leave at once. When it runs out the call ends as [ElementCallEndReason.ALONE]. Null, as upstream: the call
+     * ends the moment the other person leaves. Only DM calls: a room's call is never left for being alone in it.
+     */
+    val aloneTimeout: Duration? = null,
 ) {
     companion object {
         const val DEFAULT_PARTICIPANT_CAP_FOR_JOIN_LEAVE_SOUNDS = 8

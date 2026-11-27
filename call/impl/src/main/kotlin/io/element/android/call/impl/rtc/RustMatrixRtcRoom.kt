@@ -112,7 +112,7 @@ internal class RustMatrixRtcRoom(
 
     private fun MatrixRtcCallKind.toFfi(): FfiCallKind = when (this) {
         is MatrixRtcCallKind.Group -> FfiCallKind.Group(notify?.toFfi())
-        is MatrixRtcCallKind.Direct -> FfiCallKind.Direct(ring?.toFfi())
+        is MatrixRtcCallKind.Direct -> FfiCallKind.Direct(ring?.toFfi(), stayWhenAlone)
     }
 
     private fun MatrixRtcGroupNotify.toFfi() = FfiGroupNotify(
@@ -127,7 +127,8 @@ internal class RustMatrixRtcRoom(
 
     private fun MatrixRtcCallKind.describe(): String = when (this) {
         is MatrixRtcCallKind.Group -> "group, notify ${notify?.intent ?: "none"}"
-        is MatrixRtcCallKind.Direct -> "direct, ring ${ring?.let { "${it.intent} for ${it.lifetimeMs ?: "default"} ms" } ?: "none"}"
+        is MatrixRtcCallKind.Direct -> "direct, ring ${ring?.let { "${it.intent} for ${it.lifetimeMs ?: "default"} ms" } ?: "none"}" +
+            if (stayWhenAlone) ", staying when alone" else ""
     }
 
     private fun MatrixRtcCallIntent.toWire(): String = when (this) {

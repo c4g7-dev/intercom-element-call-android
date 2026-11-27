@@ -362,7 +362,8 @@ class ElementCallAnalyticsReporterTest {
         val names = ElementCallEndReason.entries.map {
             ElementCallAnalyticsEvent.CallParticipationEnded(AN_ID, GROUP, it, 0, 1).properties["endReason"]
         }
-        assertThat(names).containsExactly("left", "declined", "unanswered", "ringNotSent", "othersLeft", "empty", "slotClosed", "connectionLost").inOrder()
+        val expected = listOf("left", "declined", "unanswered", "ringNotSent", "othersLeft", "alone", "empty", "slotClosed", "connectionLost")
+        assertThat(names).containsExactlyElementsIn(expected).inOrder()
     }
 
     @Test

@@ -8,6 +8,7 @@
 package io.element.android.call.impl
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.SystemClock
@@ -63,6 +64,9 @@ internal interface ElementCallPlatform {
     /** Whether the device has a camera on each side, so there is anything to switch to (019 R24). */
     fun isCameraSwitchAvailable(): Boolean
 
+    /** InterCom: whether the device has a camera at all. */
+    fun hasCamera(): Boolean
+
     /** A renderer for one call's sound effects, released when it ends. */
     fun createCallSoundEffectRenderer(volume: Float): CallSoundEffectRenderer
 
@@ -91,6 +95,8 @@ internal class DefaultElementCallPlatform(
         }.getOrDefault(emptySet())
         return CameraCharacteristics.LENS_FACING_FRONT in facings && CameraCharacteristics.LENS_FACING_BACK in facings
     }
+
+    override fun hasCamera(): Boolean = context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
 
     override fun createCallSoundEffectRenderer(volume: Float): CallSoundEffectRenderer = DefaultCallSoundEffectRenderer(context, volume)
 

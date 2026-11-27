@@ -14,6 +14,16 @@ actually read it. The matrix-rust-rtc core's own history is the core's:
 
 _Nothing yet._
 
+## 0.1.2-intercom.7 - 2026-11-27
+
+- Needs the core `0.5.0-intercom.5`: `FfiCallKind.Direct` has a second field, `stayWhenAlone`.
+- `ElementCallController` gains `stayInCall` and `refreshCameraPermission`; a host with its own controller implements
+  both. `MatrixRtcCallKind.Direct` gains `stayWhenAlone` (false by default), for a host with its own RTC client.
+- `ElementCallOptions` gains `aloneTimeout` (null by default: a DM call ends when the other person leaves, as
+  before). `ElementCallSnapshot` gains `aloneDeadlineElapsedMs`, `isCameraPermissionRefused` and `hasCamera`.
+- `ElementCallEndReason` gains `ALONE`: a host with an exhaustive `when` over it adds the branch.
+- `ElementCallScreenState` gains `cameraState` and `aloneDeadlineElapsedMs`, `ElementCallScreenEvent` `StayInCall`.
+
 ## 0.1.2-intercom.6 - 2026-11-27
 
 - `ElementCallController` gains `setDeafened`, and `ElementCallSnapshot` `isDeafened`; a host with its own controller
@@ -52,7 +62,7 @@ _Nothing yet._
 ## 0.1.2-intercom.2 - 2026-11-23
 
 - Core: `io.element.android:matrix-rtc-android:0.5.0-intercom.1`, InterCom's build of the fork
-  c4g7-dev/intercom-matrix-rust-rtc, resolved from the local Maven repository. A host resolves it the same way, or
+  c4g7-dev/lattice-matrix-rust-rtc, resolved from the local Maven repository. A host resolves it the same way, or
   builds with `-PmatrixRtcLocalVersion`. arm64-v8a only (README, "The core").
 - `ElementCallPreferencesStore` gains `playbackVolumes`, with a default that keeps none; a store of the host's own
   overrides it to keep them. `MatrixRtcScreenShareOptions` gains `audioBitrate`.

@@ -108,6 +108,19 @@ data class ElementCallSnapshot(
      * share's audio, and the microphone is muted with it. See [ElementCallController.setDeafened].
      */
     val isDeafened: Boolean = false,
+    /**
+     * InterCom: when the call will be left because we are alone in it, on the `SystemClock.elapsedRealtime()` clock,
+     * or null while somebody else is here. Only in a DM call, with `ElementCallOptions.aloneTimeout` set. Moved on
+     * by [ElementCallController.stayInCall].
+     */
+    val aloneDeadlineElapsedMs: Long? = null,
+    /**
+     * InterCom: whether the camera permission was refused in this call, which "not granted" alone does not say: it
+     * is also what a camera nobody has asked for yet looks like. Draws the camera button as blocked.
+     */
+    val isCameraPermissionRefused: Boolean = false,
+    /** InterCom: whether the device has a camera at all. Without one the camera button says so and does nothing. */
+    val hasCamera: Boolean = true,
     /** Whether we are publishing a test tone instead of the microphone. */
     val isAudioTestToneEnabled: Boolean = false,
     /**

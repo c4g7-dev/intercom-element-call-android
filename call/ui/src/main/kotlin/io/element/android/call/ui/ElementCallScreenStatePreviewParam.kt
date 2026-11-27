@@ -408,6 +408,8 @@ fun anElementCallScreenState(
     isCameraEnabled: Boolean = false,
     isFrontCamera: Boolean = true,
     isCameraPermissionGranted: Boolean = false,
+    cameraState: ElementCallCameraState = if (isCameraEnabled) ElementCallCameraState.ON else ElementCallCameraState.OFF,
+    aloneDeadlineElapsedMs: Long? = null,
     // Off, like the library's default, so the bulk of the previews show what a host gets out of the box.
     isScreenShareAvailable: Boolean = false,
     isScreenSharing: Boolean = false,
@@ -467,6 +469,8 @@ fun anElementCallScreenState(
     isFrontCamera = isFrontCamera,
     isCameraSwitchAvailable = isCameraSwitchAvailable,
     isCameraPermissionGranted = isCameraPermissionGranted,
+    cameraState = cameraState,
+    aloneDeadlineElapsedMs = aloneDeadlineElapsedMs,
     isScreenShareAvailable = isScreenShareAvailable,
     isScreenSharing = isScreenSharing,
     isScreenShareStartEnabled = isScreenShareStartEnabled,

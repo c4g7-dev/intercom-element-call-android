@@ -291,6 +291,12 @@ class SampleElementCallController(
         _state.value = null
     }
 
+    override fun stayInCall() = Unit
+
+    override fun refreshCameraPermission(granted: Boolean) {
+        if (granted) update { it.copy(isCameraPermissionGranted = true, isCameraPermissionRefused = false) }
+    }
+
     /** Ours goes to the back of the queue; when it comes down, the hands after it move up one (009 R6). */
     private fun ElementCallSnapshot.withOwnHand(raised: Boolean): ElementCallSnapshot {
         val own = ownTile ?: return this

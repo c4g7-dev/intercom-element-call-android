@@ -167,4 +167,8 @@ class SampleCallController(private val context: Context, private val scope: Coro
     override fun sendReaction(kind: MatrixRtcReactionKind) = target.sendReaction(kind)
     override fun reportConnectivity(isOnline: Boolean) = target.reportConnectivity(isOnline)
     override fun hangUp() = target.hangUp()
+
+    override fun stayInCall() = target.stayInCall()
+
+    override fun refreshCameraPermission(granted: Boolean) = target.refreshCameraPermission(granted)
 }

@@ -72,6 +72,7 @@ import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -86,6 +87,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
@@ -337,6 +339,9 @@ internal class DefaultElementCallController(
      */
     private var joinsWithCamera = false
 
+    /** InterCom: whether the call was joined as a DM call, the only kind that is left for being alone in it. */
+    private var isDirectCall = false
+
     /** Whether the user has turned the camera on or off while joining. Their choice wins over the join's intent. */
     private var isCameraChosenByUser = false
 
@@ -386,6 +391,7 @@ internal class DefaultElementCallController(
                     // the tap that changes it is the answer runCall joins on.
                     isCameraEnabled = !callData.isAudioCall,
                     isCameraSwitchAvailable = platform.isCameraSwitchAvailable(),
+                    hasCamera = platform.hasCamera(),
                 )
                 joinsWithCamera = !callData.isAudioCall
                 isCameraChosenByUser = false
@@ -415,9 +421,13 @@ internal class DefaultElementCallController(
             roomContextProvider.roomContext(callData.roomId).first()
         }?.isDm == true
         val intent = if (callData.isAudioCall) MatrixRtcCallIntent.AUDIO else MatrixRtcCallIntent.VIDEO
+        // InterCom: with a time to wait alone, the core leaves the end of a DM call the other person left to us.
+        val stayWhenAlone = options.aloneTimeout != null
         return when {
-            isDm && callData.isStartingCall -> MatrixRtcCallKind.Direct(MatrixRtcRing(intent, options.ringLifetime?.inWholeMilliseconds?.toULong()))
-            isDm -> MatrixRtcCallKind.Direct(ring = null)
+            isDm && callData.isStartingCall -> {
+                MatrixRtcCallKind.Direct(MatrixRtcRing(intent, options.ringLifetime?.inWholeMilliseconds?.toULong()), stayWhenAlone)
+            }
+            isDm -> MatrixRtcCallKind.Direct(ring = null, stayWhenAlone = stayWhenAlone)
             callData.isStartingCall -> MatrixRtcCallKind.Group(MatrixRtcGroupNotify(intent))
             else -> MatrixRtcCallKind.Group(notify = null)
         }
@@ -485,7 +495,7 @@ internal class DefaultElementCallController(
         scope.launch {
             val isUpFrontAnswer = isUpFrontCameraAnswerPending
             isUpFrontCameraAnswerPending = false
-            updateState { it.copy(isCameraPermissionGranted = granted) }
+            updateState { it.copy(isCameraPermissionGranted = granted, isCameraPermissionRefused = !granted) }
             if (!granted) {
                 // Off from the refusal, not from when media connects (042 R10); a running call's own flow already says off.
                 if (call == null) {
@@ -723,6 +733,45 @@ internal class DefaultElementCallController(
         scope.launch { endCall(leave = true) }
     }
 
+    /** InterCom: counts the times the user chose to stay, so that each one starts the wait alone over. */
+    private val stayRequests = MutableStateFlow(0)
+
+    override fun stayInCall() {
+        if (_state.value?.aloneDeadlineElapsedMs != null) stayRequests.update { it + 1 }
+    }
+
+    override fun refreshCameraPermission(granted: Boolean) {
+        updateState { if (granted) it.copy(isCameraPermissionGranted = true, isCameraPermissionRefused = false) else it }
+    }
+
+    /**
+     * InterCom: alone in a DM call the other person left, the call goes on for [timeout] and is then left for the
+     * user, as [ElementCallEndReason.ALONE]. The deadline is on the snapshot for the screen's countdown; it goes
+     * when somebody is back, and starts over when the user chooses to stay. Alone is being the only member of the
+     * call once it has connected, or sharing it with nobody but other devices of our own. Before anybody answered
+     * the call is not connected, so a ring is never cut short by this.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun followAlone(rtcCall: MatrixRtcCall, timeout: Duration) {
+        combine(rtcCall.status, rtcCall.memberCount, _state, stayRequests) { status, memberCount, snapshot, stays ->
+            val isAlone = status is MatrixRtcCallStatus.Connected && (memberCount == 1 || snapshot?.isOnlyWithOwnDevices() == true)
+            if (isAlone) stays else null
+        }
+            .distinctUntilChanged()
+            .collectLatest { stays ->
+                if (stays == null) {
+                    updateState { it.copy(aloneDeadlineElapsedMs = null) }
+                    return@collectLatest
+                }
+                Timber.i("ElementCall: alone in the call, leaving in $timeout unless somebody comes back")
+                updateState { it.copy(aloneDeadlineElapsedMs = platform.elapsedRealtimeMs() + timeout.inWholeMilliseconds) }
+                delay(timeout)
+                Timber.i("ElementCall: still alone after $timeout, leaving")
+                // From a coroutine of its own: endCall cancels the job this one runs in.
+                scope.launch { endCall(leave = true, reason = ElementCallEndReason.ALONE) }
+            }
+    }
+
     private suspend fun runCall(callData: ElementCallData, attempt: ElementCallAnalyticsReporter) {
         updateState { it.copy(connection = ElementCallConnection.Joining) }
         Timber.i("ElementCall: joining ${callData.roomId}")
@@ -744,6 +793,7 @@ internal class DefaultElementCallController(
         }
         rtcRoom = room
         val kind = callKindFor(callData)
+        isDirectCall = kind is MatrixRtcCallKind.Direct
         // The join's own decision, fallback included, before anything is joined (044 R6, R25, C10).
         attempt.attempted(callKindOf(isDm = kind is MatrixRtcCallKind.Direct))
         // A DM call we start shows that it is calling from here, before the join returns (030 C3).
@@ -941,6 +991,7 @@ internal class DefaultElementCallController(
         fun observe(block: suspend () -> Unit) = launch(start = CoroutineStart.UNDISPATCHED) { block() }
 
         observe { rtcCall.memberCount.collect { value -> updateState { it.copy(memberCount = value) } } }
+        options.aloneTimeout?.let { timeout -> if (isDirectCall) observe { followAlone(rtcCall, timeout) } }
         observe { call.tiles.collect { value -> updateState { it.copy(roster = value) } } }
         observe { call.interruptions.collect { interruptionRecord.value = it } }
         keySpells.clear()
@@ -1065,7 +1116,7 @@ internal class DefaultElementCallController(
      * Safe to call twice and safe to call with no call running - both happen, because a call can end
      * from the far end and from the user's hang-up at the same moment.
      */
-    private suspend fun endCall(leave: Boolean) {
+    private suspend fun endCall(leave: Boolean, reason: ElementCallEndReason? = null) {
         val leavingRoom: MatrixRtcRoom?
         val leavingRtcCall: MatrixRtcCall?
         val leavingCall: MatrixRtcMediaSession?
@@ -1138,7 +1189,7 @@ internal class DefaultElementCallController(
         }
         // Clears the host's active call, and stops a ring that never got answered - hanging up from
         // the call screen while the far end is still ringing us is a real sequence, not a hypothetical.
-        lifecycleListener.onCallEnded(endedCallData, coreEnd?.toEndReason() ?: ElementCallEndReason.LEFT)
+        lifecycleListener.onCallEnded(endedCallData, coreEnd?.toEndReason() ?: reason ?: ElementCallEndReason.LEFT)
     }
 
     internal companion object {
@@ -1201,6 +1252,12 @@ private fun MatrixRtcCallEnd.endSound(): CallSoundEffect? = when (this) {
     MatrixRtcCallEnd.Declined -> CallSoundEffect.DECLINED
     MatrixRtcCallEnd.Unanswered -> CallSoundEffect.TIMEOUT
     else -> null
+}
+
+/** InterCom: somebody is here, and every one of them is another device of ours: for the call, nobody to talk to. */
+private fun ElementCallSnapshot.isOnlyWithOwnDevices(): Boolean {
+    val own = ownTile?.userId ?: return false
+    return roster.order.isNotEmpty() && roster.order.all { it.userId == own }
 }
 
 private fun ElementCallSnapshot.userIdOf(memberId: String, localMemberId: String): UserId? =

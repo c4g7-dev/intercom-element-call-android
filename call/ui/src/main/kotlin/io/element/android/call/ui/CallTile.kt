@@ -318,7 +318,10 @@ internal fun NamePill(
             tile.isMuted -> ElementCallTheme.icons.microphoneOff
             else -> ElementCallTheme.icons.microphoneOn
         }
-        if (icon != null) {
+        if (icon == ElementCallTheme.icons.microphoneOn && tile.isActiveSpeaker) {
+            // Lattice: somebody speaking has the icon's moving bars where their microphone is.
+            LatticeSpeakingBars(color = ElementCallTheme.colors.onOverlay)
+        } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
